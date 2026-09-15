@@ -18,6 +18,10 @@ import { Game } from './game.js';
 import { chooseMove } from './engine.js';
 import { RoomConnection, suggestRoomCode, normaliseRoomCode } from './online.js';
 import { sound, playMoveSound } from './audio.js';
+import {
+  emptyTreatState, applyShields, canUse, markUsed, raiseShield,
+  lapseShield, followMove, TREAT_LABELS, TREAT_BLURBS,
+} from './powerups.js';
 
 const screen = document.getElementById('screen');
 const announcer = document.getElementById('announcer');
@@ -33,6 +37,33 @@ function el(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
   if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+/**
+ * Whether Treat Mode is wanted, remembered per device. Off unless asked for.
+ */
+const TREAT_KEY = 'pawsitions.treatMode';
+
+function treatModeWanted() {
+  try { return localStorage.getItem(TREAT_KEY) === 'on'; } catch { return false; }
+}
+
+function setTreatModeWanted(on) {
+  try { localStorage.setItem(TREAT_KEY, on ? 'on' : 'off'); } catch { /* fine */ }
+}
+
+/** A labelled on/off switch. */
+function switchControl({ title, blurb, isOn, onChange }) {
+  const node = el('button', 'switch');
+  node.type = 'button';
+  const track = el('span', 'switch-track');
+  const text = el('span', 'switch-text');
+  text.append(el('strong', null, title), el('span', null, blurb));
+  node.append(track, text);
+  const paint = () => node.setAttribute('aria-pressed', String(isOn()));
+  node.addEventListener('click', () => { onChange(!isOn()); paint(); });
+  paint();
   return node;
 }
 
@@ -115,7 +146,16 @@ function renderHome() {
     modes.appendChild(choice);
   }
 
-  view.append(dog, heading, blurb, modes);
+  const treatSwitch = switchControl({
+    title: 'Treat Mode',
+    blurb: 'Three one-use power-ups: Shield, Fetch and Sniff. Off means plain, legal chess.',
+    isOn: treatModeWanted,
+    onChange: setTreatModeWanted,
+  });
+  const treatWrap = el('div', 'home-modes');
+  treatWrap.appendChild(treatSwitch);
+
+  view.append(dog, heading, blurb, modes, treatWrap);
   screen.replaceChildren(view);
   announce('Pawsitions. Choose how you want to play.');
 }
@@ -153,6 +193,10 @@ class GameView {
     this.subtitle = '';
     /** Locks the board regardless of whose turn it is. */
     this.frozen = false;
+    /** Treat Mode state, or a disabled one. Set by whichever mode owns it. */
+    this.treats = emptyTreatState(false);
+    /** What each power-up does when pressed, filled in by the mode. */
+    this.treatActions = {};
 
     this.root = el('div', 'game');
 
@@ -174,9 +218,13 @@ class GameView {
 
     this.controlsEl = el('div', 'controls');
 
+    this.treatsEl = el('section', 'treats');
+    this.treatsEl.hidden = true;
+
     this.panel.append(
       this.statusEl, this.subtitleEl,
       this.dogs.w.root, this.dogs.b.root,
+      this.treatsEl,
       this.controlsEl,
     );
     this.root.append(boardArea, this.panel);
@@ -184,6 +232,9 @@ class GameView {
     this.board = new Board(this.boardEl, {
       onMove: (move) => this.onMove(move),
       onPickUp: () => sound.play('pickup'),
+      // Treat Mode's last word on which moves may be offered. With it off this
+      // hands back the array it was given, untouched.
+      moveFilter: (moves) => applyShields(moves, this.treats),
     });
 
     this.controlButtons = this.controlSpecs.map((spec) => {
@@ -266,12 +317,65 @@ class GameView {
       node.disabled = spec.enabled ? !spec.enabled() : false;
     }
 
+    this._renderTreats(status);
+
+    // The board paints the shield markers itself, so that a redraw it does on
+    // its own — selecting a piece, say — cannot lose them.
+    this.board.setShields(
+      [this.treats.shield.w, this.treats.shield.b].filter((sq) => sq !== null),
+    );
+
     announce(status.text);
   }
 
   /** Let go of everything that outlives the screen. */
   destroy() {
     this.board.destroy();
+  }
+
+  /**
+   * The Treat Mode panel: one button per power-up, for the side this person is
+   * playing. Hidden entirely when Treat Mode is off, so a plain game shows no
+   * trace of it.
+   */
+  _renderTreats(status) {
+    if (!this.treats.enabled) {
+      this.treatsEl.hidden = true;
+      return;
+    }
+    this.treatsEl.hidden = false;
+
+    const mine = this.bothSides ? this.game.turn : this.myColor;
+    const head = el('div', 'treats-head');
+    head.append(el('span', 'treats-title', 'Treat Mode'));
+
+    const row = el('div', 'treats-row');
+    for (const kind of Object.keys(this.treatActions)) {
+      const node = el('button', 'treat-btn', TREAT_LABELS[kind]);
+      node.type = 'button';
+      node.title = TREAT_BLURBS[kind];
+      node.setAttribute('aria-label', `${TREAT_LABELS[kind]} — ${TREAT_BLURBS[kind]}`);
+      const usable = mine !== null && canUse(this.treats, mine, kind, {
+        isMyTurn: this.bothSides || this.myColor === this.game.turn,
+        gameOver: status.over,
+      });
+      node.disabled = !usable;
+      node.addEventListener('click', () => this.treatActions[kind]());
+      row.appendChild(node);
+    }
+
+    const note = el('p', 'treats-note',
+      this.pendingTreatNote
+        ?? (mine === null
+          ? 'Watching — power-ups are for the players.'
+          : 'One use each, per player, per game.'));
+
+    this.treatsEl.replaceChildren(head, row, note);
+  }
+
+  setTreatNote(text) {
+    this.pendingTreatNote = text;
+    this.refresh({ animate: false });
   }
 
   /**
@@ -292,6 +396,70 @@ class GameView {
   }
 }
 
+/**
+ * Give a view the three power-ups.
+ *
+ * `sideNow()` says whose power-ups the buttons belong to right now — in hot-seat
+ * that changes with the turn; elsewhere it is fixed.
+ *
+ * `fetch` is left out where it makes no sense: online, taking back a move is not
+ * one player's to decide.
+ */
+function wireTreats(view, game, { sideNow, afterChange, includeFetch = true, onSniff = null }) {
+  const actions = {
+    shield: () => {
+      const side = sideNow();
+      view.setTreatNote('Pick one of your pieces to shield. Escape to cancel.');
+      view.board.beginPick({
+        color: side,
+        onPick: (square) => {
+          if (!raiseShield(view.treats, side, square, game.position)) {
+            view.setTreatNote('That is not one of your pieces.');
+            return;
+          }
+          sound.play('promote');
+          view.setTreatNote(null);
+          afterChange();
+        },
+        onCancel: () => view.setTreatNote(null),
+      });
+    },
+
+    sniff: () => {
+      const side = sideNow();
+      const suggestion = chooseMove(game.position, { depth: 2 });
+      if (suggestion === null) return;
+      markUsed(view.treats, side, 'sniff');
+      view.board.showHint(suggestion, 5000);
+      view.setTreatNote('Biscuit says: try the green squares.');
+      sound.play('pickup');
+      afterChange();
+      setTimeout(() => view.setTreatNote(null), 5000);
+    },
+  };
+
+  if (includeFetch) {
+    actions.fetch = () => {
+      const side = sideNow();
+      // Two half-moves: yours, and the reply to it.
+      if (!game.undo()) return;
+      game.undo();
+      markUsed(view.treats, side, 'fetch');
+      view.setTreatNote('Fetched! Those two moves never happened.');
+      sound.play('move');
+      afterChange();
+    };
+  }
+
+  if (onSniff) actions.sniff = onSniff;
+
+  // A fixed order, so the buttons do not shuffle about between renders.
+  view.treatActions = {};
+  for (const kind of ['shield', 'fetch', 'sniff']) {
+    if (actions[kind]) view.treatActions[kind] = actions[kind];
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Hot-seat
 // ─────────────────────────────────────────────────────────────────────────────
@@ -309,6 +477,7 @@ function renderHotSeat() {
         className: 'btn--primary',
         onClick: () => {
           game.reset();
+          view.treats = emptyTreatState(treatModeWanted());
           view.setOrientationOverride(null);
           announce('New game. White to move.');
         },
@@ -331,10 +500,22 @@ function renderHotSeat() {
       },
     ],
     onMove: (move) => {
+      const mover = move.piece.color;
       game.play(move);
+      // A shield follows its piece, and lapses when its owner's turn comes round
+      // again — which, now this move is played, it has for the other side.
+      followMove(view.treats, move);
+      lapseShield(view.treats, mover === 'w' ? 'b' : 'w');
+      playMoveSound(move, game.status().state);
       view.refresh();
       if (move.captured !== null) view.celebrateCapture(move);
     },
+  });
+
+  view.treats = emptyTreatState(treatModeWanted());
+  wireTreats(view, game, {
+    sideNow: () => game.turn,
+    afterChange: () => view.refresh({ animate: false }),
   });
 
   setTopbar(button('← Menu', 'btn--quiet', () => { window.location.hash = '#/'; }));
@@ -347,6 +528,23 @@ function renderHotSeat() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Vs Computer
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Let the engine choose, but only from the moves it is actually allowed.
+ *
+ * With Treat Mode off this is just chooseMove. With a shield up, the engine is
+ * asked for its choice and, if that move is not allowed, the best allowed move
+ * is taken instead — so it never tries to capture through a shield.
+ */
+function pickFrom(allowed, position) {
+  const wanted = chooseMove(position, { depth: 2 });
+  if (wanted === null) return allowed[0] ?? null;
+  const match = allowed.find(
+    (m) => m.from === wanted.from && m.to === wanted.to && m.promotion === wanted.promotion,
+  );
+  if (match) return match;
+  return allowed[Math.floor(Math.random() * allowed.length)];
+}
 
 /**
  * How long the computer pauses before answering, at the very least.
@@ -419,11 +617,19 @@ function renderVsComputer(side) {
     ],
     onMove: (move) => {
       game.play(move);
+      followMove(view.treats, move);
+      lapseShield(view.treats, computer);
       playMoveSound(move, game.status().state);
       view.refresh();
       if (move.captured !== null) view.celebrateCapture(move);
       takeComputerTurn();
     },
+  });
+
+  view.treats = emptyTreatState(treatModeWanted());
+  wireTreats(view, game, {
+    sideNow: () => side,
+    afterChange: () => view.refresh({ animate: false }),
   });
 
   /**
@@ -446,7 +652,12 @@ function renderVsComputer(side) {
     later(() => {
       if (!alive) return;
       const startedAt = Date.now();
-      const move = chooseMove(game.position, { depth: 2 });
+      // The computer plays by the same rules, shields included: it chooses from
+      // the filtered list, so it cannot take a piece the player has protected.
+      const allowed = applyShields(game.legalMoves(), view.treats);
+      const move = allowed.length === 0
+        ? null
+        : pickFrom(allowed, game.position);
       const took = Date.now() - startedAt;
 
       if (move === null) {
@@ -460,6 +671,8 @@ function renderVsComputer(side) {
       later(() => {
         if (!alive) return;
         game.play(move);
+        followMove(view.treats, move);
+        lapseShield(view.treats, side);
         playMoveSound(move, game.status().state);
         view.setSubtitle('');
         view.dogs[computer].setMood('calm');
@@ -533,7 +746,12 @@ function renderRoomEntry() {
     if (event.key === 'Enter') { event.preventDefault(); go.click(); }
   });
 
-  card.append(field, go);
+  card.append(field, switchControl({
+    title: 'Treat Mode',
+    blurb: 'Power-ups for both players. Only changeable before the first move.',
+    isOn: treatModeWanted,
+    onChange: setTreatModeWanted,
+  }), go);
   screen.replaceChildren(card);
   input.focus();
   input.select();
@@ -554,6 +772,8 @@ function renderOnlineGame(roomCode) {
   let lastError = '';
   /** So a redraw for some other reason does not replay the last move's sound. */
   let previousMoveUci = null;
+  /** So a reconnection does not try to re-assert a preference mid-game. */
+  let announcedPreference = false;
 
   const view = new GameView({
     game,
@@ -620,6 +840,14 @@ function renderOnlineGame(roomCode) {
   const room = new RoomConnection(roomCode, {
     onWelcome: ({ role: seat }) => {
       role = seat;
+      // The first player to arrive sets the room's Treat Mode from their own
+      // preference. The server refuses it once a move has been played, which is
+      // exactly right: the second player joins the room as it already is, and a
+      // reconnection cannot change the rules mid-game.
+      if (seat === 'white' && !announcedPreference) {
+        announcedPreference = true;
+        room.send('treat', { kind: 'enable', on: treatModeWanted() });
+      }
       view.myColor = ROLE_COLOUR[seat] ?? null;
       // A spectator watches from White's side; a player from their own.
       view.setOrientationOverride(ROLE_COLOUR[seat] ?? 'w');
@@ -631,6 +859,8 @@ function renderOnlineGame(roomCode) {
     onState: (payload) => {
       lastError = '';
       seats = payload.seats;
+      // Treat Mode, like the position, is whatever the server says it is.
+      if (payload.treats) view.treats = payload.treats;
 
       // Rebuild the whole game from what the server sent. Replaying the moves
       // rather than only loading the position is what makes the captured-piece
@@ -669,6 +899,42 @@ function renderOnlineGame(roomCode) {
       view.refresh({ animate: false });
     },
   });
+
+  /**
+   * Online power-ups are requests, not actions. The button asks; the server
+   * decides and tells everybody. Fetch is not offered — taking back a move is
+   * not one player's to decide. Sniff never leaves the browser, because it only
+   * asks the engine running here and changes nothing anyone else can see.
+   */
+  view.treatActions = {
+    shield: () => {
+      const side = ROLE_COLOUR[role];
+      if (!side) return;
+      view.setTreatNote('Pick one of your pieces to shield. Escape to cancel.');
+      view.board.beginPick({
+        color: side,
+        onPick: (square) => {
+          view.setTreatNote(null);
+          room.send('treat', { kind: 'shield', square });
+        },
+        onCancel: () => view.setTreatNote(null),
+      });
+    },
+    sniff: () => {
+      const side = ROLE_COLOUR[role];
+      if (!side) return;
+      const suggestion = chooseMove(game.position, { depth: 2 });
+      if (suggestion === null) return;
+      // Spent here rather than on the server, because the server never hears
+      // about it — there is nothing it could meaningfully check.
+      markUsed(view.treats, side, 'sniff');
+      view.board.showHint(suggestion, 5000);
+      view.setTreatNote('Biscuit says: try the green squares.');
+      sound.play('pickup');
+      view.refresh({ animate: false });
+      setTimeout(() => view.setTreatNote(null), 5000);
+    },
+  };
 
   setTopbar(button('← Menu', 'btn--quiet', () => { window.location.hash = '#/'; }));
 

@@ -691,3 +691,117 @@ button { font: inherit; color: inherit; }
     transition-duration: 0.001ms !important;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Treat Mode
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* A piece you may point at while choosing what to shield. */
+.sq--pickable {
+  box-shadow: inset 0 0 0 3px var(--biscuit);
+  cursor: pointer;
+}
+
+/* The move Sniff is pointing at. */
+.sq--hinted::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--good);
+  opacity: .34;
+  pointer-events: none;
+  animation: hint-in var(--fade) var(--ease);
+}
+
+/* A shielded piece: a soft ring, so it reads at a glance without hiding the art. */
+.sq--shielded {
+  box-shadow: inset 0 0 0 4px color-mix(in srgb, var(--good) 75%, transparent);
+}
+
+/* An author rule beats the browser's own [hidden] rule, so hiding this panel
+   has to be spelled out or `hidden = true` does nothing. */
+.treats[hidden] { display: none; }
+
+.treats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.treats-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.treats-title {
+  font-family: "Fraunces", Georgia, serif;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.treats-note { margin: 0; font-size: 12.5px; color: var(--ink-soft); }
+
+.treats-row { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.treat-btn {
+  flex: 1 1 auto;
+  min-width: 82px;
+  min-height: 40px;
+  padding: 7px 12px;
+  border: 1.5px solid var(--rule);
+  border-radius: 12px;
+  background: var(--sunken);
+  font-size: 13.5px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: border-color 140ms var(--ease);
+}
+.treat-btn:hover:not(:disabled) { border-color: var(--biscuit); }
+.treat-btn:disabled { opacity: .4; cursor: not-allowed; }
+.treat-btn[aria-pressed="true"] { border-color: var(--biscuit); background: var(--biscuit); color: #FFF8F2; }
+
+/* The switch on the home screen and the room screen. */
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1.5px solid var(--rule);
+  border-radius: 16px;
+  background: var(--surface);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+.switch:hover { border-color: var(--biscuit); }
+.switch[aria-pressed="true"] { border-color: var(--biscuit); }
+
+.switch-track {
+  flex: none;
+  width: 46px; height: 26px;
+  border-radius: 999px;
+  background: var(--rule);
+  position: relative;
+  transition: background 160ms var(--ease);
+}
+.switch[aria-pressed="true"] .switch-track { background: var(--biscuit); }
+
+.switch-track::after {
+  content: "";
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--surface);
+  transition: transform 160ms var(--ease);
+}
+.switch[aria-pressed="true"] .switch-track::after { transform: translateX(20px); }
+
+.switch-text strong { display: block; font-size: 15px; font-weight: 800; }
+.switch-text span { font-size: 13px; color: var(--ink-soft); }

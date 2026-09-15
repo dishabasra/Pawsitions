@@ -22,8 +22,11 @@
 
 import { DurableObject } from 'cloudflare:workers';
 import {
-  initialPosition, fromFEN, toFEN, uciToMove, makeMove, gameStatus,
+  initialPosition, fromFEN, toFEN, uciToMove, makeMove, gameStatus, legalMoves,
 } from '../public/rules.js';
+import {
+  emptyTreatState, applyShields, canUse, markUsed, raiseShield, lapseShield, followMove,
+} from '../public/powerups.js';
 
 const START_FEN = toFEN(initialPosition());
 
@@ -78,9 +81,32 @@ export class Room extends DurableObject {
           resigned_by TEXT,
           white_id    TEXT,
           black_id    TEXT,
-          started_at  INTEGER NOT NULL
+          started_at  INTEGER NOT NULL,
+          treats_on   INTEGER NOT NULL DEFAULT 0,
+          shield_w    INTEGER,
+          shield_b    INTEGER,
+          used_w      TEXT NOT NULL DEFAULT '{}',
+          used_b      TEXT NOT NULL DEFAULT '{}'
         );
       `);
+
+      // Rooms created before Treat Mode existed have a table without these
+      // columns. SQLite has no "add column if missing", and adding one that is
+      // already there is an error rather than a no-op, so each is attempted and
+      // the complaint ignored.
+      for (const column of [
+        "treats_on INTEGER NOT NULL DEFAULT 0",
+        "shield_w INTEGER",
+        "shield_b INTEGER",
+        "used_w TEXT NOT NULL DEFAULT '{}'",
+        "used_b TEXT NOT NULL DEFAULT '{}'",
+      ]) {
+        try {
+          this.sql.exec(`ALTER TABLE game ADD COLUMN ${column}`);
+        } catch {
+          // Already present.
+        }
+      }
       this.sql.exec(`
         CREATE TABLE IF NOT EXISTS moves (
           n   INTEGER PRIMARY KEY,
@@ -107,6 +133,39 @@ export class Room extends DurableObject {
 
   _moves() {
     return this.sql.exec('SELECT uci FROM moves ORDER BY n').toArray().map((r) => r.uci);
+  }
+
+  /** The room's Treat Mode state, in the shape powerups.js expects. */
+  _treats(game = this._game()) {
+    const parse = (text) => {
+      try {
+        return JSON.parse(text ?? '{}');
+      } catch {
+        return {};
+      }
+    };
+    return {
+      enabled: Boolean(game.treats_on),
+      shield: {
+        w: game.shield_w === null || game.shield_w === undefined ? null : game.shield_w,
+        b: game.shield_b === null || game.shield_b === undefined ? null : game.shield_b,
+      },
+      used: {
+        w: { shield: false, fetch: false, sniff: false, ...parse(game.used_w) },
+        b: { shield: false, fetch: false, sniff: false, ...parse(game.used_b) },
+      },
+    };
+  }
+
+  _saveTreats(treats) {
+    this.sql.exec(
+      'UPDATE game SET treats_on = ?, shield_w = ?, shield_b = ?, used_w = ?, used_b = ? WHERE id = 1',
+      treats.enabled ? 1 : 0,
+      treats.shield.w,
+      treats.shield.b,
+      JSON.stringify(treats.used.w),
+      JSON.stringify(treats.used.b),
+    );
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -147,6 +206,7 @@ export class Room extends DurableObject {
       case 'move': return this._move(ws, payload);
       case 'newgame': return this._newGame(ws);
       case 'resign': return this._resign(ws);
+      case 'treat': return this._treat(ws, payload);
       default:
         return this._error(ws, 'unknown_type', `Nothing here handles "${message.type}".`);
     }
@@ -290,13 +350,25 @@ export class Room extends DurableObject {
     }
 
     // The only door move text comes through. It is resolved against the legal
-    // moves of *this* position, so invented moves find no match.
+    // moves of *this* position, so invented moves find no match — and then run
+    // through the same Treat Mode filter the browser uses, so a shield cannot be
+    // ignored by a client that has been tampered with.
+    const treats = this._treats(game);
     const move = uciToMove(position, uci);
     if (move === null) {
       return this._error(ws, 'illegal', 'That is not a legal move.');
     }
+    if (!applyShields([move], treats).length) {
+      return this._error(ws, 'shielded', 'That piece is shielded this move.');
+    }
 
     const next = makeMove(position, move);
+
+    // A shield follows its piece, and the opponent's shield has now done its one
+    // move of work.
+    followMove(treats, move);
+    lapseShield(treats, myColour === 'w' ? 'b' : 'w');
+    this._saveTreats(treats);
 
     // Written down before anyone is told, so the database is never behind what
     // the players have seen.
@@ -323,6 +395,10 @@ export class Room extends DurableObject {
       'UPDATE game SET fen = ?, last_move = NULL, resigned_by = NULL, started_at = ? WHERE id = 1',
       START_FEN, Date.now(),
     );
+    // Power-ups come back, but whether the room wants Treat Mode at all is a
+    // setting, not part of the game, so it survives.
+    const fresh = emptyTreatState(Boolean(this._game().treats_on));
+    this._saveTreats(fresh);
     this._broadcastState();
   }
 
@@ -342,6 +418,58 @@ export class Room extends DurableObject {
     }
 
     this.sql.exec('UPDATE game SET resigned_by = ? WHERE id = 1', who.role === 'white' ? 'w' : 'b');
+    this._broadcastState();
+  }
+
+  /**
+   * Treat Mode, checked here rather than trusted from the browser.
+   *
+   *   enable  turn the room's Treat Mode on or off — only before the first move,
+   *           because switching the rules mid-game is not a power-up
+   *   shield  protect one of your own pieces for the opponent's next move
+   *
+   * Fetch is not offered online: taking back a move is not one player's to
+   * decide. Sniff never reaches the server — it only asks the engine running in
+   * the asking player's own browser, and changes nothing anyone else can see.
+   */
+  _treat(ws, { kind, square, on }) {
+    const who = this._whoIs(ws);
+    if (who.role !== 'white' && who.role !== 'black') {
+      return this._error(ws, 'spectator', 'Power-ups are for the players.');
+    }
+
+    const game = this._game();
+    const colour = who.role === 'white' ? 'w' : 'b';
+    const treats = this._treats(game);
+
+    if (kind === 'enable') {
+      if (this._moves().length > 0) {
+        return this._error(ws, 'too_late', 'Treat Mode can only be changed before the first move.');
+      }
+      const next = emptyTreatState(Boolean(on));
+      this._saveTreats(next);
+      return this._broadcastState();
+    }
+
+    if (kind !== 'shield') {
+      return this._error(ws, 'unknown_treat', `There is no power-up called "${kind}".`);
+    }
+
+    const position = fromFEN(game.fen);
+    const status = gameStatus(position);
+    const over = game.resigned_by !== null || status === 'checkmate' || status === 'stalemate';
+
+    if (!canUse(treats, colour, 'shield', { isMyTurn: position.turn === colour, gameOver: over })) {
+      return this._error(ws, 'no_treat', 'You cannot use that right now.');
+    }
+    if (!Number.isInteger(square) || square < 0 || square > 63) {
+      return this._error(ws, 'bad_square', 'That is not a square.');
+    }
+    if (!raiseShield(treats, colour, square, position)) {
+      return this._error(ws, 'not_yours', 'You can only shield your own piece.');
+    }
+
+    this._saveTreats(treats);
     this._broadcastState();
   }
 
@@ -391,6 +519,7 @@ export class Room extends DurableObject {
       moves,
       lastMove: game.last_move,
       resignedBy: game.resigned_by,
+      treats: this._treats(game),
       seats: {
         whiteTaken: game.white_id !== null,
         blackTaken: game.black_id !== null,

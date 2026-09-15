@@ -421,7 +421,7 @@ All four are independent of each other. Any can be skipped or reordered.
 
 Built last, on purpose. Off by default, so a normal game is unaffected.
 
-- [ ] **6.1 — The Treat Mode wrapper and switch** · M
+- [x] **6.1 — The Treat Mode wrapper and switch** · M
   - **Depends on:** 5.1, 4.6
   - **Files:** `public/powerups.js`, `public/app.js`, `public/index.html`
   - **Builds:** the `applyShields` wrapper from ProductSpec §9, the per-player budget of
@@ -430,7 +430,7 @@ Built last, on purpose. Off by default, so a normal game is unaffected.
     toggle off `applyShields` is provably the identity function — verified by playing a
     full game with Treat Mode off and confirming the move lists are identical.
 
-- [ ] **6.2 — Shield** · M
+- [x] **6.2 — Shield** · M
   - **Depends on:** 6.1
   - **Files:** `public/powerups.js`, `public/board.js`, `src/worker.js`
   - **Builds:** choosing a piece, the visual marker, refusing the next capture of it, and
@@ -439,14 +439,14 @@ Built last, on purpose. Off by default, so a normal game is unaffected.
     afterwards; the shield moves with the piece; it cannot be used twice; and online the
     Durable Object enforces all of that, so a modified client gains nothing.
 
-- [ ] **6.3 — Fetch** · S
+- [x] **6.3 — Fetch** · S
   - **Depends on:** 6.1, 5.2
   - **Files:** `public/powerups.js`, `public/app.js`
   - **Builds:** taking back the last two half-moves, in hot-seat and vs computer only.
   - **Done when:** it restores the position exactly as Undo does, is usable once per
     player per game, and is absent in online mode.
 
-- [ ] **6.4 — Sniff** · S
+- [x] **6.4 — Sniff** · S
   - **Depends on:** 6.1, 3.2
   - **Files:** `public/powerups.js`, `public/app.js`
   - **Builds:** running the engine on the human's position and highlighting its choice for
@@ -481,4 +481,6 @@ spectator chat · mobile app builds
 
 ## Next task
 
-**6.1 — the Treat Mode wrapper and switch.** The last phase: power-ups, off by default.
+**2.10 — the deploy**, which needs a Cloudflare login and is the only thing left. Every
+feature is built and verified locally; 3.4 and 4.6 are the same deploy seen from the other
+two modes, and 7.1 is the optional Figma push.

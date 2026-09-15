@@ -51,10 +51,18 @@ export class Board {
    *   onMove(move)      called when the player completes a legal move
    *   onPickUp(square)  optional, for sound
    */
-  constructor(element, { onMove = () => {}, onPickUp = () => {} } = {}) {
+  constructor(element, { onMove = () => {}, onPickUp = () => {}, moveFilter = null } = {}) {
     this.root = element;
     this.onMove = onMove;
     this.onPickUp = onPickUp;
+    /**
+     * An optional last word on which moves may be offered. Treat Mode uses it to
+     * remove captures of a shielded piece. Left null, the board offers exactly
+     * what rules.js returned.
+     */
+    this.moveFilter = moveFilter;
+    /** Set while the player is choosing a square rather than making a move. */
+    this.picking = null;
 
     this.position = null;
     this.orientation = 'w';
@@ -66,6 +74,16 @@ export class Board {
     this.cursor = 60;            // the keyboard cursor, starting on e1
     this.drag = null;
     this.promotionPending = null;
+    /** A move being pointed at by Sniff, or null. */
+    this.hinted = null;
+    this._hintTimer = null;
+    /**
+     * Squares holding a shielded piece. The board owns this rather than being
+     * painted from outside, so that a redraw it does on its own — selecting a
+     * piece, say — cannot lose the markers, and so that a square a shielded
+     * piece has moved off cannot keep one.
+     */
+    this.shielded = [];
     /** True when the press that is in flight is what selected the piece. */
     this.selectedOnPress = false;
 
@@ -181,15 +199,32 @@ export class Board {
         if (!child.classList.contains('sq-coord')) child.remove();
       }
 
-      button.classList.remove('sq--w', 'sq--b', 'sq--playable', 'sq--selected', 'sq--last', 'sq--check', 'sq--dragging');
+      button.classList.remove(
+        'sq--w', 'sq--b', 'sq--playable', 'sq--selected', 'sq--last',
+        'sq--check', 'sq--dragging', 'sq--shielded',
+      );
 
       if (piece !== null) {
         button.classList.add(piece.color === 'w' ? 'sq--w' : 'sq--b');
         button.appendChild(pieceSvg(piece));
       }
 
-      const mine = piece !== null && piece.color === this.movableColor && piece.color === this.position.turn;
-      if (mine) button.classList.add('sq--playable');
+      button.classList.remove('sq--pickable', 'sq--hinted');
+
+      if (this.picking) {
+        if (piece !== null && piece.color === this.picking.color) {
+          button.classList.add('sq--pickable', 'sq--playable');
+        }
+      } else {
+        const mine = piece !== null && piece.color === this.movableColor && piece.color === this.position.turn;
+        if (mine) button.classList.add('sq--playable');
+      }
+
+      if (this.hinted && (square === this.hinted.from || square === this.hinted.to)) {
+        button.classList.add('sq--hinted');
+      }
+
+      if (this.shielded.includes(square)) button.classList.add('sq--shielded');
 
       if (square === this.selected) button.classList.add('sq--selected');
       if (this.lastMove && (square === this.lastMove.from || square === this.lastMove.to)) {
@@ -249,8 +284,28 @@ export class Board {
     return piece !== null && piece.color === this.movableColor && piece.color === this.position.turn;
   }
 
-  _select(square) {
+  /** The moves this board will offer from a square, after any filter. */
+  _offeredFrom(square) {
     const moves = movesFrom(this.position, square);
+    return this.moveFilter ? this.moveFilter(moves) : moves;
+  }
+
+  /** Which squares hold a shielded piece. */
+  setShields(squares) {
+    this.shielded = squares;
+    this._render();
+  }
+
+  setMoveFilter(fn) {
+    this.moveFilter = fn;
+    if (this.selected !== null) {
+      this.legalForSelected = this._offeredFrom(this.selected);
+      this._render();
+    }
+  }
+
+  _select(square) {
+    const moves = this._offeredFrom(square);
     if (moves.length === 0) {
       // Tell the player *why* nothing happened, rather than ignoring the click.
       this.selected = null;
@@ -296,11 +351,45 @@ export class Board {
     return true;
   }
 
+  /**
+   * Ask the player to point at one of their own pieces — used by Shield.
+   *
+   * While this is running the board does not move anything; a click picks a
+   * square and hands it back. Escape, or a click on anything else, cancels.
+   */
+  beginPick({ color, onPick, onCancel = () => {} }) {
+    this._deselect();
+    this.picking = { color, onPick, onCancel };
+    this._render();
+  }
+
+  cancelPick() {
+    if (!this.picking) return;
+    const { onCancel } = this.picking;
+    this.picking = null;
+    this._render();
+    onCancel();
+  }
+
   _bindEvents() {
     this.root.addEventListener('click', (event) => {
       if (this.promotionPending) return;
       const square = this._squareOf(event.target);
       if (square === -1) return;
+
+      // Choosing a square for a power-up, rather than making a move.
+      if (this.picking) {
+        const piece = this.position.board[square];
+        if (piece !== null && piece.color === this.picking.color) {
+          const { onPick } = this.picking;
+          this.picking = null;
+          this._render();
+          onPick(square);
+        } else {
+          this.cancelPick();
+        }
+        return;
+      }
 
       // Pressing down on a piece already selects it, so the click that follows
       // must not immediately undo that. Only a *second* click on the same piece
@@ -324,7 +413,7 @@ export class Board {
     // Dragging. Pointer events cover mouse, touch and pen with one code path.
     this.root.addEventListener('pointerdown', (event) => {
       if (event.button !== 0 && event.pointerType === 'mouse') return;
-      if (this.promotionPending) return;
+      if (this.promotionPending || this.picking) return;
       const square = this._squareOf(event.target);
       if (square === -1 || !this._canPickUp(square)) return;
 
@@ -438,6 +527,9 @@ export class Board {
   _onKeyDown(event) {
     if (this.promotionPending) return;
 
+    // While picking a square, Enter and Space are handled as clicks on the
+    // focused button, which the click handler above already deals with.
+
     const steps = {
       ArrowUp: [0, 1], ArrowDown: [0, -1], ArrowLeft: [-1, 0], ArrowRight: [1, 0],
     };
@@ -457,7 +549,8 @@ export class Board {
 
     if (event.key === 'Escape') {
       event.preventDefault();
-      this._deselect();
+      if (this.picking) this.cancelPick();
+      else this._deselect();
       return;
     }
 
@@ -473,12 +566,27 @@ export class Board {
   }
 
   /**
+   * Point at a move for a few seconds — what Sniff does with the engine's
+   * suggestion. Purely a highlight; it does not play anything.
+   */
+  showHint(move, milliseconds = 5000) {
+    clearTimeout(this._hintTimer);
+    this.hinted = { from: move.from, to: move.to };
+    this._render();
+    this._hintTimer = setTimeout(() => {
+      this.hinted = null;
+      this._render();
+    }, milliseconds);
+  }
+
+  /**
    * Let go of the window-level listeners.
    *
    * Called when the screen changes. Without it every game left behind a pair of
    * listeners that would keep responding to drags on a board no longer shown.
    */
   destroy() {
+    clearTimeout(this._hintTimer);
     window.removeEventListener('pointermove', this._onPointerMove);
     window.removeEventListener('pointerup', this._onPointerEnd);
     window.removeEventListener('pointercancel', this._onPointerEnd);
@@ -551,8 +659,6 @@ export class Board {
     const close = () => {
       backdrop.remove();
       this.promotionPending = null;
-    /** True when the press that is in flight is what selected the piece. */
-    this.selectedOnPress = false;
       document.removeEventListener('keydown', onKey, true);
     };
 
