@@ -25,7 +25,20 @@
     "not_found_handling": "single-page-application",
 
     // The one exception: live game traffic must reach our code rather than
-    // looking for a file. Added in phase 4 when online rooms arrive.
+    // looking for a file.
     "run_worker_first": ["/ws/*"]
-  }
+  },
+
+  "durable_objects": {
+    "bindings": [
+      // One Room object per room code, reached with env.ROOM.getByName(code).
+      { "name": "ROOM", "class_name": "Room" }
+    ]
+  },
+
+  "migrations": [
+    // new_sqlite_classes, not new_classes: this gives each Room a real SQLite
+    // database rather than the older key-value store.
+    { "tag": "v1", "new_sqlite_classes": ["Room"] }
+  ]
 }

@@ -16,6 +16,7 @@ import { Board } from './board.js';
 import { Dog } from './dog.js';
 import { Game } from './game.js';
 import { chooseMove } from './engine.js';
+import { RoomConnection, suggestRoomCode, normaliseRoomCode } from './online.js';
 
 const screen = document.getElementById('screen');
 const announcer = document.getElementById('announcer');
@@ -454,18 +455,197 @@ function renderVsComputer(side) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Placeholders for the modes still to come
+// Online — the code entry screen
 // ─────────────────────────────────────────────────────────────────────────────
 
-function renderNotYet(title, detail) {
+function renderRoomEntry() {
   topbarActions.replaceChildren(
     button('← Menu', 'btn--quiet', () => { window.location.hash = '#/'; }),
   );
+
   const card = el('div', 'card');
-  card.append(el('h2', null, title), el('p', 'note', detail));
-  card.appendChild(button('Back to the menu', 'btn--primary', () => { window.location.hash = '#/'; }));
+  card.append(
+    el('h2', null, 'Play a friend online'),
+    el('p', 'note', 'Both of you type the same code. The first one in plays White, the second plays Black, and anyone else can watch.'),
+  );
+
+  const field = el('div', 'field');
+  const label = el('label', null, 'Room code');
+  label.htmlFor = 'room-code';
+  const input = document.createElement('input');
+  input.id = 'room-code';
+  input.name = 'room-code';
+  input.type = 'text';
+  input.autocomplete = 'off';
+  input.spellcheck = false;
+  input.maxLength = 12;
+  input.value = suggestRoomCode();
+  input.setAttribute('aria-describedby', 'room-code-help');
+  const help = el('p', 'note', 'Letters and numbers, at least three. We picked one for you — change it if you like.');
+  help.id = 'room-code-help';
+  field.append(label, input, help);
+
+  const go = button('Open this room', 'btn--primary', () => {
+    const code = normaliseRoomCode(input.value);
+    if (code.length < 3) {
+      help.textContent = 'That code is too short — it needs at least three letters or numbers.';
+      help.classList.add('note--warn');
+      input.focus();
+      return;
+    }
+    window.location.hash = `#/online/${code}`;
+  });
+
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') { event.preventDefault(); go.click(); }
+  });
+
+  card.append(field, go);
   screen.replaceChildren(card);
-  announce(`${title}. ${detail}`);
+  input.focus();
+  input.select();
+  announce('Type a room code, or use the one suggested.');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Online — the game
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ROLE_COLOUR = { white: 'w', black: 'b' };
+
+function renderOnlineGame(roomCode) {
+  const game = new Game();
+  let role = null;          // 'white' | 'black' | 'spectator'
+  let connection = 'connecting';
+  let seats = { whiteTaken: false, blackTaken: false, whiteHere: false, blackHere: false, watching: 0 };
+  let lastError = '';
+
+  const view = new GameView({
+    game,
+    myColor: null,          // set once the server tells us our seat
+    names: { w: 'Biscuit', b: 'Pepper' },
+    controls: [
+      {
+        label: 'New game',
+        className: 'btn--primary',
+        onClick: () => room.send('newgame'),
+        enabled: () => role === 'white' || role === 'black',
+      },
+      {
+        label: 'Resign',
+        className: 'btn--danger',
+        onClick: () => {
+          if (window.confirm('Resign this game? Your opponent wins.')) room.send('resign');
+        },
+        enabled: () => (role === 'white' || role === 'black') && !game.status().over,
+      },
+      {
+        label: 'Copy link',
+        onClick: async () => {
+          const link = `${location.origin}/#/online/${roomCode}`;
+          try {
+            await navigator.clipboard.writeText(link);
+            announce('Room link copied.');
+            view.setSubtitle('Link copied — send it to your friend.');
+          } catch {
+            // Clipboard refused, which browsers do in plenty of situations.
+            // Showing the link is more use than an apology.
+            view.setSubtitle(link);
+          }
+        },
+      },
+    ],
+    onMove: (move) => {
+      // Send it and wait. The board does not change until the server says so —
+      // that is what it means for the server to decide every move.
+      room.send('move', { uci: moveUci(move) });
+    },
+  });
+
+  /** UCI for a move, matching what rules.js produces. */
+  function moveUci(move) {
+    const FILES = 'abcdefgh';
+    const name = (i) => FILES[i % 8] + String(8 - (i >> 3));
+    return name(move.from) + name(move.to) + (move.promotion ?? '');
+  }
+
+  /** One sentence describing where we stand, above the chess itself. */
+  function describe() {
+    if (connection === 'connecting') return 'Connecting…';
+    if (connection === 'reconnecting') return 'Reconnecting…';
+    if (connection === 'closed') return 'Disconnected.';
+    if (lastError) return lastError;
+    if (role === 'spectator') return `Watching · room ${roomCode}`;
+    const youAre = role === 'white' ? 'You are White' : 'You are Black';
+    const opponent = role === 'white' ? seats.blackHere : seats.whiteHere;
+    if (!opponent) return `${youAre} · waiting for a second player…`;
+    return `${youAre} · room ${roomCode}`;
+  }
+
+  const room = new RoomConnection(roomCode, {
+    onWelcome: ({ role: seat }) => {
+      role = seat;
+      view.myColor = ROLE_COLOUR[seat] ?? null;
+      // A spectator watches from White's side; a player from their own.
+      view.setOrientationOverride(ROLE_COLOUR[seat] ?? 'w');
+      view.setSubtitle(describe());
+      view.refresh({ animate: false });
+      announce(seat === 'spectator' ? 'You are watching this game.' : `You are ${seat}.`);
+    },
+
+    onState: (payload) => {
+      lastError = '';
+      seats = payload.seats;
+
+      // Rebuild the whole game from what the server sent. Replaying the moves
+      // rather than only loading the position is what makes the captured-piece
+      // tray and Biscuit's treat count exact after a refresh instead of guessed.
+      const rebuilt = Game.fromRecord(payload.fen, payload.moves ?? []);
+      game.position = rebuilt.position;
+      game.history = rebuilt.history;
+      game.resignedBy = payload.resignedBy ?? null;
+
+      view.setSubtitle(describe());
+      view.refresh();
+
+      const last = game.lastMove;
+      if (last && last.captured !== null) view.celebrateCapture(last);
+    },
+
+    onError: ({ message }) => {
+      // The server refused something. Say so, and redraw from the truth we hold
+      // so the board cannot be left showing a move that did not happen.
+      lastError = message;
+      view.setSubtitle(message);
+      view.refresh({ animate: false });
+      announce(message);
+    },
+
+    onStatus: (state) => {
+      connection = state;
+      // Lock the board whenever we are not connected: a move made now would go
+      // nowhere, and letting it look as though it worked would be a lie.
+      view.frozen = state !== 'open';
+      view.setSubtitle(describe());
+      view.refresh({ animate: false });
+    },
+  });
+
+  topbarActions.replaceChildren(
+    button('← Menu', 'btn--quiet', () => { window.location.hash = '#/'; }),
+  );
+
+  view.mount();
+  view.setSubtitle(describe());
+  announce(`Room ${roomCode}. Connecting.`);
+
+  const viewDestroy = view.destroy.bind(view);
+  view.destroy = () => {
+    room.close();
+    viewDestroy();
+  };
+
+  return view;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -493,9 +673,12 @@ function route() {
       if (parts[1] === 'w' || parts[1] === 'b') current = renderVsComputer(parts[1]);
       else renderSidePicker();
       break;
-    case 'online':
-      renderNotYet('Online rooms', 'This mode is being built. Hot-seat works now.');
+    case 'online': {
+      const code = normaliseRoomCode(parts[1] ?? '');
+      if (code.length >= 3) current = renderOnlineGame(code);
+      else renderRoomEntry();
       break;
+    }
     default:
       window.location.hash = '#/';
   }

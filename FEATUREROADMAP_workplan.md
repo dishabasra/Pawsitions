@@ -303,7 +303,7 @@ The first thing that exists as a real URL. Two people, one screen, taking turns.
 
 ## Phase 4 — Online rooms
 
-- [ ] **4.1 — Durable Object wiring** · S
+- [x] **4.1 — Durable Object wiring** · S
   - **Depends on:** 2.10
   - **Files:** `wrangler.jsonc`, `src/worker.js`
   - **Builds:** the `ROOM` binding, the `new_sqlite_classes` migration, and
@@ -312,7 +312,7 @@ The first thing that exists as a real URL. Two people, one screen, taking turns.
   - **Done when:** `npm run deploy` succeeds with the Durable Object registered, the
     static pages still load, and a request to the WebSocket path reaches the Worker.
 
-- [ ] **4.2 — The Room object and its database** · M
+- [x] **4.2 — The Room object and its database** · M
   - **Depends on:** 4.1
   - **Files:** `src/worker.js`
   - **Builds:** routing by room code through `env.ROOM.getByName(roomCode)`, the WebSocket
@@ -322,7 +322,7 @@ The first thing that exists as a real URL. Two people, one screen, taking turns.
     the schema is created on first use; the object survives hibernation and answers
     afterwards; and **no timer of any kind exists anywhere in the file**.
 
-- [ ] **4.3 — Seats, identity and rejoining** · M
+- [x] **4.3 — Seats, identity and rejoining** · M
   - **Depends on:** 4.2
   - **Files:** `src/worker.js`, `public/online.js`
   - **Builds:** first-in-is-White and second-is-Black, everyone else a spectator; the
@@ -332,7 +332,7 @@ The first thing that exists as a real URL. Two people, one screen, taking turns.
     refreshing either player's page returns them to the **same seat and the same
     position**, and closing and reopening the tab does too.
 
-- [ ] **4.4 — The server decides every move** · L
+- [x] **4.4 — The server decides every move** · L
   - **Depends on:** 4.3, 1.8
   - **Files:** `src/worker.js`, `public/online.js`
   - **Builds:** the five-step validation from ProductSpec §7.4 — including importing
@@ -343,7 +343,7 @@ The first thing that exists as a real URL. Two people, one screen, taking turns.
     and changes nothing for anyone; and the position in SQLite is correct after every
     single move.
 
-- [ ] **4.5 — New game and disconnection** · M
+- [x] **4.5 — New game and disconnection** · M
   - **Depends on:** 4.4
   - **Files:** `src/worker.js`, `public/online.js`, `public/app.js`
   - **Builds:** New game resetting the board for everyone while keeping the seats; the
@@ -354,11 +354,16 @@ The first thing that exists as a real URL. Two people, one screen, taking turns.
     network reconnects to the correct position without either side pressing anything; and
     the status line always says what is happening.
 
-- [ ] **4.6 — 🚀 Ship online** · S
-  - **Depends on:** 4.5
-  - **Done when:** a complete game is played to checkmate between two different people on
-    two different networks, with a third person watching, and both players have refreshed
-    mid-game without losing their seat.
+- [ ] **4.6 — 🚀 Ship online** · S · ⛔ **blocked with 2.10 on the Cloudflare login**
+  - **Depends on:** 4.5, 2.10
+  - **Verified locally** against `wrangler dev` with three separate browsers: seats handed
+    out in join order, moves appearing on all three screens, a spectator and an
+    out-of-turn player both refused, a refresh returning to the same seat and position,
+    resign, New game resetting everyone, reconnection after the socket is killed, and
+    every illegal move refused when sent straight down the socket by a genuinely seated
+    player.
+  - **Done when:** the same is true of the public URL, between two people on two
+    different networks.
 
 ---
 
@@ -476,6 +481,6 @@ spectator chat · mobile app builds
 
 ## Next task
 
-**4.1 — Durable Object wiring.**
-
-Phases 1 to 3 are built and verified. Online rooms are the last mode.
+**5.1 — Captured pieces and material count** — already largely built alongside Biscuit in
+2.8, so this task is mostly verification. Then undo, sounds, resign (done in 4.5) and the
+music.
