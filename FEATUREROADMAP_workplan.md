@@ -371,7 +371,7 @@ The first thing that exists as a real URL. Two people, one screen, taking turns.
 
 All four are independent of each other. Any can be skipped or reordered.
 
-- [ ] **5.1 — Captured pieces and material count** · M
+- [x] **5.1 — Captured pieces and material count** · M
   - **Depends on:** 2.10 (and 4.6 to work online)
   - **Files:** `public/app.js`, `public/board.js`, `public/styles.css`
   - **Builds:** the tray beside each dog showing captured pieces at small size, plus the
@@ -381,7 +381,7 @@ All four are independent of each other. Any can be skipped or reordered.
     number matches pawn 1 / knight 3 / bishop 3 / rook 5 / queen 9; it survives a refresh
     online; and it shares its count with Biscuit's treats rather than counting separately.
 
-- [ ] **5.2 — Undo in hot-seat** · S
+- [x] **5.2 — Undo in hot-seat** · S
   - **Depends on:** 2.10
   - **Files:** `public/app.js`
   - **Builds:** a history of positions and a take-back button, hot-seat only.
@@ -389,7 +389,7 @@ All four are independent of each other. Any can be skipped or reordered.
     square, captured tray and treat count exactly; it can be pressed repeatedly back to the
     start; it is disabled at the start position; and it does not appear in the other modes.
 
-- [ ] **5.3 — Sound on move** · S
+- [x] **5.3 — Sound on move** · S
   - **Depends on:** 2.10
   - **Files:** `public/audio.js`, `public/app.js`
   - **Builds:** the Web Audio move, capture, check and checkmate sounds from ProductSpec
@@ -398,7 +398,7 @@ All four are independent of each other. Any can be skipped or reordered.
     file is downloaded; nothing plays before the player has interacted with the page; and
     the toggle survives a refresh.
 
-- [ ] **5.4 — Resign in online** · S
+- [x] **5.4 — Resign in online** · S
   - **Depends on:** 4.6
   - **Files:** `src/worker.js`, `public/online.js`, `public/app.js`
   - **Builds:** the `resign` message, a confirmation step, and the result written to
@@ -407,7 +407,7 @@ All four are independent of each other. Any can be skipped or reordered.
     opponent named as winner in the status line; it survives a refresh; a spectator cannot
     resign; and the button only appears while a game is in progress.
 
-- [ ] **5.5 — Calming music** · M
+- [x] **5.5 — Calming music** · M
   - **Depends on:** 5.3
   - **Files:** `public/audio.js`
   - **Builds:** the generated four-chord felt-piano loop from ProductSpec §10.
@@ -481,6 +481,4 @@ spectator chat · mobile app builds
 
 ## Next task
 
-**5.1 — Captured pieces and material count** — already largely built alongside Biscuit in
-2.8, so this task is mostly verification. Then undo, sounds, resign (done in 4.5) and the
-music.
+**6.1 — the Treat Mode wrapper and switch.** The last phase: power-ups, off by default.

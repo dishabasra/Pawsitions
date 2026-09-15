@@ -17,6 +17,7 @@ import { Dog } from './dog.js';
 import { Game } from './game.js';
 import { chooseMove } from './engine.js';
 import { RoomConnection, suggestRoomCode, normaliseRoomCode } from './online.js';
+import { sound, playMoveSound } from './audio.js';
 
 const screen = document.getElementById('screen');
 const announcer = document.getElementById('announcer');
@@ -35,6 +36,41 @@ function el(tag, className, text) {
   return node;
 }
 
+/**
+ * The two sound switches.
+ *
+ * They live in the top bar on every screen rather than behind a settings menu,
+ * because the moment somebody wants the music off is the moment it is playing.
+ */
+function soundToggles() {
+  const wrap = el('div', 'topbar-actions');
+
+  const make = (key, onLabel, offLabel, isOn, set) => {
+    const node = el('button', 'btn btn--quiet');
+    node.type = 'button';
+    const paint = () => {
+      const on = isOn();
+      node.textContent = on ? onLabel : offLabel;
+      node.setAttribute('aria-pressed', String(on));
+      node.setAttribute('aria-label', `${onLabel.replace(/^\S+\s/, '')}: ${on ? 'on' : 'off'}`);
+    };
+    node.addEventListener('click', async () => { await set(!isOn()); paint(); });
+    paint();
+    return { node, paint };
+  };
+
+  const music = make('music', '♫ Music on', '♫ Music off', () => sound.musicOn, (v) => sound.setMusic(v));
+  const sfx = make('sfx', '♪ Sounds on', '♪ Sounds off', () => sound.sfxOn, (v) => sound.setSfx(v));
+
+  wrap.append(music.node, sfx.node);
+  return wrap;
+}
+
+/** The standard top bar for a screen: sound switches, then a way back. */
+function setTopbar(...extra) {
+  topbarActions.replaceChildren(soundToggles(), ...extra);
+}
+
 function button(label, className, onClick, { disabled = false } = {}) {
   const node = el('button', `btn ${className}`.trim(), label);
   node.type = 'button';
@@ -48,7 +84,7 @@ function button(label, className, onClick, { disabled = false } = {}) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function renderHome() {
-  topbarActions.replaceChildren();
+  setTopbar();
   const view = el('div', 'home');
 
   const dog = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -145,7 +181,10 @@ class GameView {
     );
     this.root.append(boardArea, this.panel);
 
-    this.board = new Board(this.boardEl, { onMove: (move) => this.onMove(move) });
+    this.board = new Board(this.boardEl, {
+      onMove: (move) => this.onMove(move),
+      onPickUp: () => sound.play('pickup'),
+    });
 
     this.controlButtons = this.controlSpecs.map((spec) => {
       const node = button(typeof spec.label === 'function' ? spec.label() : spec.label,
@@ -298,9 +337,7 @@ function renderHotSeat() {
     },
   });
 
-  topbarActions.replaceChildren(
-    button('← Menu', 'btn--quiet', () => { window.location.hash = '#/'; }),
-  );
+  setTopbar(button('← Menu', 'btn--quiet', () => { window.location.hash = '#/'; }));
 
   view.mount();
   announce('Hot-seat game. White to move.');
@@ -322,9 +359,7 @@ function renderHotSeat() {
 const MINIMUM_THINK_MS = 400;
 
 function renderSidePicker() {
-  topbarActions.replaceChildren(
-    button('← Menu', 'btn--quiet', () => { window.location.hash = '#/'; }),
-  );
+  setTopbar(button('← Menu', 'btn--quiet', () => { window.location.hash = '#/'; }));
 
   const card = el('div', 'card');
   card.append(
@@ -384,6 +419,7 @@ function renderVsComputer(side) {
     ],
     onMove: (move) => {
       game.play(move);
+      playMoveSound(move, game.status().state);
       view.refresh();
       if (move.captured !== null) view.celebrateCapture(move);
       takeComputerTurn();
@@ -424,6 +460,7 @@ function renderVsComputer(side) {
       later(() => {
         if (!alive) return;
         game.play(move);
+        playMoveSound(move, game.status().state);
         view.setSubtitle('');
         view.dogs[computer].setMood('calm');
         view.frozen = false;
@@ -433,9 +470,7 @@ function renderVsComputer(side) {
     }, 30);
   }
 
-  topbarActions.replaceChildren(
-    button('← Menu', 'btn--quiet', () => { window.location.hash = '#/'; }),
-  );
+  setTopbar(button('← Menu', 'btn--quiet', () => { window.location.hash = '#/'; }));
 
   view.mount();
   announce(`Playing the computer as ${side === 'w' ? 'White' : 'Black'}.`);
@@ -459,9 +494,7 @@ function renderVsComputer(side) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function renderRoomEntry() {
-  topbarActions.replaceChildren(
-    button('← Menu', 'btn--quiet', () => { window.location.hash = '#/'; }),
-  );
+  setTopbar(button('← Menu', 'btn--quiet', () => { window.location.hash = '#/'; }));
 
   const card = el('div', 'card');
   card.append(
@@ -519,6 +552,8 @@ function renderOnlineGame(roomCode) {
   let connection = 'connecting';
   let seats = { whiteTaken: false, blackTaken: false, whiteHere: false, blackHere: false, watching: 0 };
   let lastError = '';
+  /** So a redraw for some other reason does not replay the last move's sound. */
+  let previousMoveUci = null;
 
   const view = new GameView({
     game,
@@ -609,7 +644,11 @@ function renderOnlineGame(roomCode) {
       view.refresh();
 
       const last = game.lastMove;
-      if (last && last.captured !== null) view.celebrateCapture(last);
+      if (last && last.uci !== previousMoveUci) {
+        previousMoveUci = last.uci;
+        playMoveSound(last, game.status().state);
+        if (last.captured !== null) view.celebrateCapture(last);
+      }
     },
 
     onError: ({ message }) => {
@@ -631,9 +670,7 @@ function renderOnlineGame(roomCode) {
     },
   });
 
-  topbarActions.replaceChildren(
-    button('← Menu', 'btn--quiet', () => { window.location.hash = '#/'; }),
-  );
+  setTopbar(button('← Menu', 'btn--quiet', () => { window.location.hash = '#/'; }));
 
   view.mount();
   view.setSubtitle(describe());
@@ -686,3 +723,21 @@ function route() {
 
 window.addEventListener('hashchange', route);
 route();
+
+/**
+ * Browsers will not let a page make a sound until the person has interacted
+ * with it. So rather than trying at load — which fails silently — the audio is
+ * woken by the first click or key press, and only if a switch is already on
+ * from a previous visit.
+ */
+function wakeAudioOnFirstInteraction() {
+  const wake = async () => {
+    if (sound.sfxOn || sound.musicOn) {
+      await sound.unlock();
+      if (sound.musicOn) await sound.startMusic();
+    }
+  };
+  document.addEventListener('pointerdown', wake, { once: true });
+  document.addEventListener('keydown', wake, { once: true });
+}
+wakeAudioOnFirstInteraction();
