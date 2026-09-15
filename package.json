@@ -1,0 +1,18 @@
+{
+  "name": "pawsitions",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A browser chess game where a puppy grows up beside the board. Hot-seat, vs computer, and online rooms on Cloudflare Workers.",
+  "author": "Disha Basra",
+  "license": "MIT",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node --test test/",
+    "perft": "node test/perft.js"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
