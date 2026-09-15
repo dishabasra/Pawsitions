@@ -264,7 +264,7 @@ The first thing that exists as a real URL. Two people, one screen, taking turns.
 
 ## Phase 3 — Vs Computer
 
-- [ ] **3.1 — Position evaluation** · M
+- [x] **3.1 — Position evaluation** · M
   - **Depends on:** 2.10
   - **Files:** `public/engine.js`
   - **Builds:** the material values and piece-square tables from ProductSpec §6, scoring a
@@ -273,7 +273,7 @@ The first thing that exists as a real URL. Two people, one screen, taking turns.
     knight on d4 scores higher than the same knight on a1; and checkmate scores are large
     enough that no material total can outweigh them.
 
-- [ ] **3.2 — Minimax with alpha-beta at depth 2** · L
+- [x] **3.2 — Minimax with alpha-beta at depth 2** · L
   - **Depends on:** 3.1
   - **Files:** `public/engine.js`
   - **Builds:** the search, capture-first move ordering, and the random tie-break.
@@ -282,7 +282,7 @@ The first thing that exists as a real URL. Two people, one screen, taking turns.
     legal move from a thousand random legal positions; and its slowest reply across those
     thousand is comfortably under two seconds.
 
-- [ ] **3.3 — The Vs Computer game** · M
+- [x] **3.3 — The Vs Computer game** · M
   - **Depends on:** 3.2
   - **Files:** `public/app.js`
   - **Builds:** the `#/vs` route, the White-or-Black side picker, the alternating loop,
@@ -292,10 +292,12 @@ The first thing that exists as a real URL. Two people, one screen, taking turns.
     means the computer opens; the board faces the player's own side; the interface never
     freezes while the computer thinks; and New game returns to the side picker.
 
-- [ ] **3.4 — 🚀 Ship vs computer** · S
-  - **Depends on:** 3.3
-  - **Done when:** the public URL plays a full game against the computer as White and as
-    Black, on a phone, with every reply arriving in under two seconds.
+- [ ] **3.4 — 🚀 Ship vs computer** · S · ⛔ **blocked with 2.10 on the Cloudflare login**
+  - **Depends on:** 3.3, 2.10
+  - **Verified locally:** a full game as White and as Black against `wrangler dev`, with
+    the slowest reply 640ms round-trip — and that figure includes the deliberate 400ms
+    pause, so the search itself is a fraction of it.
+  - **Done when:** the same is true of the public URL, on a phone.
 
 ---
 
@@ -474,7 +476,6 @@ spectator chat · mobile app builds
 
 ## Next task
 
-**3.1 — Position evaluation.**
+**4.1 — Durable Object wiring.**
 
-Phase 1 is proven and Phase 2 is built. The only outstanding item behind us is the deploy
-in 2.10, which needs a Cloudflare login and blocks nothing else.
+Phases 1 to 3 are built and verified. Online rooms are the last mode.

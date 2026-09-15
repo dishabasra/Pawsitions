@@ -15,6 +15,7 @@
 import { Board } from './board.js';
 import { Dog } from './dog.js';
 import { Game } from './game.js';
+import { chooseMove } from './engine.js';
 
 const screen = document.getElementById('screen');
 const announcer = document.getElementById('announcer');
@@ -306,6 +307,153 @@ function renderHotSeat() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Vs Computer
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * How long the computer pauses before answering, at the very least.
+ *
+ * At depth 2 it decides in a few tens of milliseconds, which reads as a bug
+ * rather than as cleverness — the piece appears to move before you have let go
+ * of yours. A short, deliberate pause with the dog tilting his head makes it
+ * feel like an opponent.
+ */
+const MINIMUM_THINK_MS = 400;
+
+function renderSidePicker() {
+  topbarActions.replaceChildren(
+    button('← Menu', 'btn--quiet', () => { window.location.hash = '#/'; }),
+  );
+
+  const card = el('div', 'card');
+  card.append(
+    el('h2', null, 'Which side would you like?'),
+    el('p', 'note', 'White moves first. Choose Black and the computer opens.'),
+  );
+
+  const row = el('div', 'choice-row');
+  for (const [color, label] of [['w', 'Play as White'], ['b', 'Play as Black']]) {
+    const choice = el('button', `side-choice side-choice--${color}`);
+    choice.type = 'button';
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 48 48');
+    svg.setAttribute('aria-hidden', 'true');
+    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    use.setAttribute('href', '#piece-k');
+    svg.appendChild(use);
+    choice.append(svg, el('span', null, label));
+    choice.addEventListener('click', () => { window.location.hash = `#/vs/${color}`; });
+    row.appendChild(choice);
+  }
+
+  card.appendChild(row);
+  screen.replaceChildren(card);
+  announce('Playing the computer. Choose White or Black.');
+}
+
+function renderVsComputer(side) {
+  const computer = side === 'w' ? 'b' : 'w';
+  const game = new Game();
+
+  /** Timers in flight, so leaving the screen can cancel them. */
+  let pending = [];
+  let alive = true;
+  const later = (fn, ms) => { pending.push(setTimeout(fn, ms)); };
+
+  const view = new GameView({
+    game,
+    myColor: side,
+    names: {
+      w: side === 'w' ? 'Biscuit' : 'Rufus',
+      b: side === 'b' ? 'Biscuit' : 'Rufus',
+    },
+    controls: [
+      {
+        label: 'New game',
+        className: 'btn--primary',
+        onClick: () => { window.location.hash = '#/vs'; },
+      },
+      {
+        label: 'Flip board',
+        onClick: () => {
+          const now = view.board.orientation;
+          view.setOrientationOverride(now === 'w' ? 'b' : 'w');
+        },
+      },
+    ],
+    onMove: (move) => {
+      game.play(move);
+      view.refresh();
+      if (move.captured !== null) view.celebrateCapture(move);
+      takeComputerTurn();
+    },
+  });
+
+  /**
+   * The computer's turn.
+   *
+   * The search itself is fast enough to run straight through, but it is started
+   * from a timer rather than inline so the browser gets a chance to paint the
+   * player's own move first. Otherwise both moves appear at once and the board
+   * looks like it skipped a beat.
+   */
+  function takeComputerTurn() {
+    if (!alive) return;
+    const status = game.status();
+    if (status.over || game.turn !== computer) return;
+
+    view.setSubtitle('Thinking…');
+    view.dogs[computer].setMood('think');
+    view.setFrozen(true);
+
+    later(() => {
+      if (!alive) return;
+      const startedAt = Date.now();
+      const move = chooseMove(game.position, { depth: 2 });
+      const took = Date.now() - startedAt;
+
+      if (move === null) {
+        // gameStatus already said the game was over; nothing to do.
+        view.setSubtitle('');
+        view.dogs[computer].setMood('calm');
+        view.setFrozen(false);
+        return;
+      }
+
+      later(() => {
+        if (!alive) return;
+        game.play(move);
+        view.setSubtitle('');
+        view.dogs[computer].setMood('calm');
+        view.frozen = false;
+        view.refresh();
+        if (move.captured !== null) view.celebrateCapture(move);
+      }, Math.max(0, MINIMUM_THINK_MS - took));
+    }, 30);
+  }
+
+  topbarActions.replaceChildren(
+    button('← Menu', 'btn--quiet', () => { window.location.hash = '#/'; }),
+  );
+
+  view.mount();
+  announce(`Playing the computer as ${side === 'w' ? 'White' : 'Black'}.`);
+
+  // If the player took Black, the computer opens.
+  if (game.turn === computer) takeComputerTurn();
+
+  const viewDestroy = view.destroy.bind(view);
+  view.destroy = () => {
+    alive = false;
+    for (const id of pending) clearTimeout(id);
+    pending = [];
+    viewDestroy();
+  };
+
+  return view;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Placeholders for the modes still to come
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -342,7 +490,8 @@ function route() {
       current = renderHotSeat();
       break;
     case 'vs':
-      renderNotYet('Playing the computer', 'This mode is being built next. Hot-seat works now.');
+      if (parts[1] === 'w' || parts[1] === 'b') current = renderVsComputer(parts[1]);
+      else renderSidePicker();
       break;
     case 'online':
       renderNotYet('Online rooms', 'This mode is being built. Hot-seat works now.');
