@@ -77,7 +77,7 @@ chess library.
     round-trips a dozen hand-written positions without losing castling rights or the
     en-passant square.
 
-- [ ] **1.2 — Move generation for all six pieces** · L
+- [x] **1.2 — Move generation for all six pieces** · L
   - **Depends on:** 1.1
   - **Files:** `public/rules.js`
   - **Builds:** candidate moves for pawn (one step, two steps, diagonal captures), knight,
@@ -86,7 +86,7 @@ chess library.
     knight on d4 has 8 moves and on a1 has 2; a lone queen on d4 has 27; sliding pieces
     stop at the first occupied square and may capture it only if it is an enemy.
 
-- [ ] **1.3 — Check detection and legal-move filtering** · M
+- [x] **1.3 — Check detection and legal-move filtering** · M
   - **Depends on:** 1.2
   - **Files:** `public/rules.js`
   - **Builds:** `isSquareAttacked`, `isInCheck`, and the filter that turns candidate moves
@@ -97,7 +97,7 @@ chess library.
     step backwards along a checking queen's line; when in check, only moves that resolve
     the check are returned.
 
-- [ ] **1.4 — Castling** · M
+- [x] **1.4 — Castling** · M
   - **Depends on:** 1.3
   - **Files:** `public/rules.js`
   - **Builds:** both sides, both colours, all the conditions, and the rights bookkeeping —
@@ -108,7 +108,7 @@ chess library.
     after the king or that rook has moved; refused after that rook has been captured. The
     rook lands on the correct square in all four cases.
 
-- [ ] **1.5 — En passant** · M
+- [x] **1.5 — En passant** · M
   - **Depends on:** 1.3
   - **Files:** `public/rules.js`
   - **Builds:** setting `epTarget` on a two-square pawn move, offering the capture only on
@@ -119,7 +119,7 @@ chess library.
     along a rank is refused — the notorious edge case where two pawns leave the rank at
     once.
 
-- [ ] **1.6 — Promotion** · S
+- [x] **1.6 — Promotion** · S
   - **Depends on:** 1.3
   - **Files:** `public/rules.js`
   - **Builds:** four separate legal moves per promoting pawn move — queen, rook, bishop,
@@ -128,7 +128,7 @@ chess library.
     destination, including on capturing diagonals; promoting to a king or a pawn is
     impossible; `uciToMove` rejects `e7e8k`.
 
-- [ ] **1.7 — Checkmate and stalemate** · S
+- [x] **1.7 — Checkmate and stalemate** · S
   - **Depends on:** 1.4, 1.5, 1.6
   - **Files:** `public/rules.js`
   - **Builds:** `gameStatus(pos)` returning `playing` / `check` / `checkmate` / `stalemate`.
@@ -136,7 +136,7 @@ chess library.
     is `stalemate`; a position with no legal moves is never reported as `playing`; being in
     check with legal moves available is `check`, not `checkmate`.
 
-- [ ] **1.8 — 🔒 Perft proof** · M
+- [x] **1.8 — 🔒 Perft proof** · M
   - **Depends on:** 1.7
   - **Files:** `public/rules.js` (adds `perft`), `test/perft.test.js`, `test/positions.js`
   - **Builds:** the move-counting test described in ProductSpec §5.4, using Node's built-in
@@ -147,7 +147,8 @@ chess library.
     counts to depth 3. Any mismatch is a rules bug and is fixed here, not worked around
     later.
 
-> **🔒 Gate. Do not start Phase 2 until this box is ticked.**
+> **🔒 Gate PASSED.** All perft positions match to depth 4, and the starting
+> position matches to depth 5 (4,865,609). Phase 2 is unblocked.
 
 ---
 
@@ -462,12 +463,8 @@ spectator chat · mobile app builds
 
 ## Next task
 
-**1.2 — Move generation for all six pieces.**
+**2.1 — Cloudflare project and a deployed placeholder.**
 
-Task 1.1 is done: squares, pieces, positions, FEN and UCI notation are in
-`public/rules.js`, with 27 tests passing. 1.2 is the only unblocked task, and it is the
-biggest single piece of work in the rules module — every later phase depends on it.
-
-It is checkable the moment it exists: from the starting position, the candidate move count
-must be exactly 20. That number is also the first line of the perft proof in 1.8, so 1.2
-either starts the project off correct or shows immediately that it is not.
+Phase 1 is complete and the gate has passed: 100 tests, every standard perft position
+matching to depth 4, and the starting position to depth 5. The rules are proven correct, so
+every later phase can import them without hesitation.

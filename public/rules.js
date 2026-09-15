@@ -441,3 +441,496 @@ export function parseUci(text) {
     promotion: text.length === 5 ? text[4] : null,
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Directions
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Moves are described as a step in files and ranks — `[1, 2]` means "one file
+ * right, two ranks up" — rather than as a number to add to the index.
+ *
+ * Adding a number is faster but wraps around the edges: stepping "one file
+ * right" from h4 lands on a5, which looks like a perfectly ordinary square. That
+ * bug is the classic way a chess engine ends up with a knight teleporting across
+ * the board, and it is invisible until a perft count comes out wrong. Working in
+ * files and ranks makes it impossible.
+ */
+
+const KNIGHT_STEPS = Object.freeze([
+  [1, 2], [2, 1], [2, -1], [1, -2], [-1, -2], [-2, -1], [-2, 1], [-1, 2],
+]);
+
+const DIAGONAL_STEPS = Object.freeze([[1, 1], [1, -1], [-1, -1], [-1, 1]]);
+const STRAIGHT_STEPS = Object.freeze([[0, 1], [1, 0], [0, -1], [-1, 0]]);
+const ALL_STEPS = Object.freeze([...STRAIGHT_STEPS, ...DIAGONAL_STEPS]);
+
+/**
+ * The square reached by stepping from `index`, or -1 if that walks off the board.
+ */
+function step(index, deltaFile, deltaRank) {
+  const file = (index % 8) + deltaFile;
+  const rank = (7 - (index >> 3)) + deltaRank;
+  if (file < 0 || file > 7 || rank < 0 || rank > 7) return -1;
+  return (7 - rank) * 8 + file;
+}
+
+/** Which direction this colour's pawns travel: White up the board, Black down. */
+function pawnDirection(color) {
+  return color === WHITE ? 1 : -1;
+}
+
+/** The rank a colour's pawns start on, as 0–7 from White's side. */
+function pawnHomeRank(color) {
+  return color === WHITE ? 1 : 6;
+}
+
+/** The rank a colour's pawns promote on. */
+function promotionRank(color) {
+  return color === WHITE ? 7 : 0;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Attacks
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Is `square` attacked by any piece of colour `byColor`?
+ *
+ * Rather than generating every move that side could make and seeing whether any
+ * lands here — which would be circular, since move generation needs this
+ * function — we stand on the square and look outwards. If we look along a
+ * diagonal and the first piece we meet is an enemy bishop or queen, the square is
+ * attacked. And so on for each way a piece can move.
+ *
+ * "Attacked" is about capture, not legality: a pinned enemy knight still attacks
+ * the squares it covers, because it could still take a king standing there.
+ */
+export function isSquareAttacked(pos, square, byColor) {
+  const board = pos.board;
+
+  // Knights.
+  for (const [df, dr] of KNIGHT_STEPS) {
+    const at = step(square, df, dr);
+    if (at === -1) continue;
+    const p = board[at];
+    if (p !== null && p.color === byColor && p.type === KNIGHT) return true;
+  }
+
+  // The enemy king, one square in any direction.
+  for (const [df, dr] of ALL_STEPS) {
+    const at = step(square, df, dr);
+    if (at === -1) continue;
+    const p = board[at];
+    if (p !== null && p.color === byColor && p.type === KING) return true;
+  }
+
+  // Sliding pieces: walk outwards until we hit something.
+  for (const [df, dr] of STRAIGHT_STEPS) {
+    for (let at = step(square, df, dr); at !== -1; at = step(at, df, dr)) {
+      const p = board[at];
+      if (p === null) continue;
+      if (p.color === byColor && (p.type === ROOK || p.type === QUEEN)) return true;
+      break; // any other piece blocks the line
+    }
+  }
+  for (const [df, dr] of DIAGONAL_STEPS) {
+    for (let at = step(square, df, dr); at !== -1; at = step(at, df, dr)) {
+      const p = board[at];
+      if (p === null) continue;
+      if (p.color === byColor && (p.type === BISHOP || p.type === QUEEN)) return true;
+      break;
+    }
+  }
+
+  // Pawns. A white pawn attacks diagonally upwards, so a white pawn attacking
+  // this square must be sitting one rank *below* it.
+  const back = -pawnDirection(byColor);
+  for (const df of [-1, 1]) {
+    const at = step(square, df, back);
+    if (at === -1) continue;
+    const p = board[at];
+    if (p !== null && p.color === byColor && p.type === PAWN) return true;
+  }
+
+  return false;
+}
+
+/** Is this side's king currently attacked? */
+export function isInCheck(pos, color) {
+  const king = findKing(pos, color);
+  if (king === -1) return false; // test positions may have no king
+  return isSquareAttacked(pos, king, opposite(color));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Candidate moves
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Every move the piece on `from` could make if we ignored, for a moment, whether
+ * it leaves its own king in check.
+ *
+ * These are usually called "pseudo-legal" moves. They are never handed to the
+ * rest of the project — `legalMoves` filters them first. Nothing outside this
+ * file should call this function.
+ */
+function candidateMovesFrom(pos, from, { includeCastling = true } = {}) {
+  const moving = pos.board[from];
+  if (moving === null) return [];
+
+  const moves = [];
+  const us = moving.color;
+  const them = opposite(us);
+  const board = pos.board;
+
+  /** Add a move to an empty square or an enemy piece; refuse our own pieces. */
+  const tryStep = (to) => {
+    if (to === -1) return false;
+    const target = board[to];
+    if (target === null) {
+      moves.push(createMove({ from, to, piece: moving }));
+      return true; // the line may continue
+    }
+    if (target.color === them) {
+      moves.push(createMove({ from, to, piece: moving, captured: target }));
+    }
+    return false; // occupied either way, so a sliding line stops here
+  };
+
+  const slide = (steps) => {
+    for (const [df, dr] of steps) {
+      for (let to = step(from, df, dr); to !== -1; to = step(to, df, dr)) {
+        if (!tryStep(to)) break;
+      }
+    }
+  };
+
+  switch (moving.type) {
+    case PAWN: {
+      const dir = pawnDirection(us);
+      const promotes = rankOf(from) + dir === promotionRank(us);
+
+      /** A pawn move either promotes — four ways — or it does not. */
+      const addPawnMove = (to, captured, flag = null) => {
+        if (promotes) {
+          for (const promotion of PROMOTION_TYPES) {
+            moves.push(createMove({ from, to, piece: moving, captured, promotion, flag }));
+          }
+        } else {
+          moves.push(createMove({ from, to, piece: moving, captured, flag }));
+        }
+      };
+
+      // Straight ahead, one square, only onto an empty square.
+      const ahead = step(from, 0, dir);
+      if (ahead !== -1 && board[ahead] === null) {
+        addPawnMove(ahead, null);
+
+        // And two squares, from the home rank, if both are empty.
+        if (rankOf(from) === pawnHomeRank(us)) {
+          const twoAhead = step(from, 0, dir * 2);
+          if (twoAhead !== -1 && board[twoAhead] === null) {
+            moves.push(createMove({ from, to: twoAhead, piece: moving, flag: 'double' }));
+          }
+        }
+      }
+
+      // Diagonal captures, including en passant.
+      for (const df of [-1, 1]) {
+        const to = step(from, df, dir);
+        if (to === -1) continue;
+        const target = board[to];
+        if (target !== null) {
+          if (target.color === them) addPawnMove(to, target);
+        } else if (to === pos.epTarget) {
+          // En passant: the pawn we take is not on the square we land on. It is
+          // alongside us, on the square the enemy pawn skipped through.
+          const capturedSquare = step(to, 0, -dir);
+          const capturedPawn = capturedSquare === -1 ? null : board[capturedSquare];
+          if (capturedPawn !== null && capturedPawn.color === them && capturedPawn.type === PAWN) {
+            moves.push(createMove({ from, to, piece: moving, captured: capturedPawn, flag: 'ep' }));
+          }
+        }
+      }
+      break;
+    }
+
+    case KNIGHT:
+      for (const [df, dr] of KNIGHT_STEPS) tryStep(step(from, df, dr));
+      break;
+
+    case BISHOP:
+      slide(DIAGONAL_STEPS);
+      break;
+
+    case ROOK:
+      slide(STRAIGHT_STEPS);
+      break;
+
+    case QUEEN:
+      slide(ALL_STEPS);
+      break;
+
+    case KING:
+      for (const [df, dr] of ALL_STEPS) tryStep(step(from, df, dr));
+      if (includeCastling) addCastlingMoves(pos, from, moving, moves);
+      break;
+
+    default:
+      throw new Error(`Unknown piece type: ${moving.type}`);
+  }
+
+  return moves;
+}
+
+/**
+ * Castling — the only move where two pieces move at once.
+ *
+ * It is legal only when all of this holds:
+ *   · the right has not been lost (king moved, that rook moved, or that rook was
+ *     captured on its home square),
+ *   · every square between king and rook is empty,
+ *   · the king is not currently in check,
+ *   · the king does not pass through an attacked square,
+ *   · the king does not land on an attacked square.
+ *
+ * Note what is *not* required: the rook may pass through an attacked square, and
+ * on the queenside the b-file square may be attacked. Only the king's journey
+ * matters.
+ */
+function addCastlingMoves(pos, from, king, moves) {
+  const us = king.color;
+  const them = opposite(us);
+  const board = pos.board;
+
+  // Both sides are described the same way, so the two colours share one table.
+  const options = us === WHITE
+    ? [
+        { right: 'wK', flag: 'castleK', kingHome: 60, kingTo: 62, rookHome: 63, empty: [61, 62], safe: [60, 61, 62] },
+        { right: 'wQ', flag: 'castleQ', kingHome: 60, kingTo: 58, rookHome: 56, empty: [57, 58, 59], safe: [60, 59, 58] },
+      ]
+    : [
+        { right: 'bK', flag: 'castleK', kingHome: 4, kingTo: 6, rookHome: 7, empty: [5, 6], safe: [4, 5, 6] },
+        { right: 'bQ', flag: 'castleQ', kingHome: 4, kingTo: 2, rookHome: 0, empty: [1, 2, 3], safe: [4, 3, 2] },
+      ];
+
+  for (const option of options) {
+    if (!pos.castling[option.right]) continue;
+
+    // A hand-written position may claim a right whose pieces are not actually
+    // there, so never trust the right alone.
+    if (from !== option.kingHome) continue;
+    const rook = board[option.rookHome];
+    if (rook === null || rook.type !== ROOK || rook.color !== us) continue;
+
+    if (option.empty.some((sq) => board[sq] !== null)) continue;
+    if (option.safe.some((sq) => isSquareAttacked(pos, sq, them))) continue;
+
+    moves.push(createMove({ from, to: option.kingTo, piece: king, flag: option.flag }));
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Playing a move
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Which castling right each corner square carries. Used both when a rook moves
+// off one of these squares and when a rook is captured on one — the second case
+// being the clause most implementations forget, and one that perft catches
+// immediately.
+const CASTLING_SQUARES = Object.freeze({
+  63: 'wK', // h1
+  56: 'wQ', // a1
+  60: ['wK', 'wQ'], // e1 — the king itself
+  7: 'bK',  // h8
+  0: 'bQ',  // a8
+  4: ['bK', 'bQ'], // e8
+});
+
+/**
+ * Play a move and return the resulting position. The position passed in is not
+ * touched.
+ */
+export function makeMove(pos, move) {
+  const next = clonePosition(pos);
+  const moving = move.piece;
+  const us = moving.color;
+
+  next.board[move.from] = null;
+  next.board[move.to] = move.promotion === null
+    ? moving
+    : piece(move.promotion, us);
+
+  // En passant takes a pawn that is not on the landing square.
+  if (move.flag === 'ep') {
+    const capturedSquare = step(move.to, 0, -pawnDirection(us));
+    next.board[capturedSquare] = null;
+  }
+
+  // Castling moves the rook as well.
+  if (move.flag === 'castleK' || move.flag === 'castleQ') {
+    const rank = us === WHITE ? 56 : 0;
+    const [rookFrom, rookTo] = move.flag === 'castleK'
+      ? [rank + 7, rank + 5]   // h-file to f-file
+      : [rank + 0, rank + 3];  // a-file to d-file
+    next.board[rookTo] = next.board[rookFrom];
+    next.board[rookFrom] = null;
+  }
+
+  // Castling rights are lost by the king moving, by a rook leaving its corner,
+  // and by a rook being captured in its corner.
+  for (const square of [move.from, move.to]) {
+    const affected = CASTLING_SQUARES[square];
+    if (affected === undefined) continue;
+    for (const right of Array.isArray(affected) ? affected : [affected]) {
+      next.castling[right] = false;
+    }
+  }
+
+  // A two-square pawn move leaves an en-passant target behind it, for one move
+  // only. Every other move clears it.
+  next.epTarget = move.flag === 'double'
+    ? step(move.from, 0, pawnDirection(us))
+    : null;
+
+  // The halfmove clock counts moves since the last capture or pawn move. Kept so
+  // FEN survives a round trip; no draw rule reads it.
+  next.halfmove = (moving.type === PAWN || move.captured !== null)
+    ? 0
+    : pos.halfmove + 1;
+
+  if (us === BLACK) next.fullmove = pos.fullmove + 1;
+  next.turn = opposite(us);
+
+  return next;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Legal moves — the single source of truth
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Every legal move for the side to move.
+ *
+ * This is the function the entire project is built on. The board draws its move
+ * dots from it, the computer searches only what it returns, and the online
+ * server refuses anything absent from it. Because it is the only thing that
+ * decides what is allowed, there is no second opinion anywhere that could drift
+ * out of step — and an illegal move has nowhere to come from.
+ *
+ * The filter at the end is what makes these *legal* rather than merely possible:
+ * play each candidate out and throw away any that leaves your own king attacked.
+ * That single rule covers pins, blocking a check, moving out of check, and the
+ * rarest case of all — an en-passant capture that removes two pawns from a rank
+ * at once and exposes your king to a rook sitting at the end of it.
+ */
+export function legalMoves(pos) {
+  const moves = [];
+  for (let from = 0; from < 64; from++) {
+    const p = pos.board[from];
+    if (p === null || p.color !== pos.turn) continue;
+    for (const move of candidateMovesFrom(pos, from)) {
+      if (!isInCheck(makeMove(pos, move), pos.turn)) moves.push(move);
+    }
+  }
+  return moves;
+}
+
+/**
+ * The legal moves starting on one square — what the board draws dots from when a
+ * player picks a piece up.
+ */
+export function movesFrom(pos, square) {
+  const p = pos.board[square];
+  if (p === null || p.color !== pos.turn) return [];
+  return candidateMovesFrom(pos, square)
+    .filter((move) => !isInCheck(makeMove(pos, move), pos.turn));
+}
+
+/**
+ * Where the game stands.
+ *
+ *   playing     ordinary position
+ *   check       the side to move is in check but has a way out
+ *   checkmate   in check with no legal move — the game is over
+ *   stalemate   not in check, but no legal move — a draw
+ *
+ * Draw by repetition and the fifty-move rule are out of scope, as agreed.
+ */
+export function gameStatus(pos) {
+  const hasMove = legalMoves(pos).length > 0;
+  const inCheck = isInCheck(pos, pos.turn);
+  if (hasMove) return inCheck ? 'check' : 'playing';
+  return inCheck ? 'checkmate' : 'stalemate';
+}
+
+/** Is the game over? */
+export function isGameOver(pos) {
+  const status = gameStatus(pos);
+  return status === 'checkmate' || status === 'stalemate';
+}
+
+/**
+ * Turn UCI text into a real move — or null.
+ *
+ * This deliberately resolves the text *against the current position* rather than
+ * trusting it. A client that sends a move for the wrong side, a move that does
+ * not exist, or a promotion to a king finds no match in the legal-move list and
+ * is refused. It is the only way move text enters the game from outside, which
+ * is what makes the online server a referee rather than a relay.
+ */
+export function uciToMove(pos, text) {
+  const parsed = parseUci(text);
+  if (parsed === null) return null;
+  for (const move of legalMoves(pos)) {
+    if (
+      move.from === parsed.from &&
+      move.to === parsed.to &&
+      (move.promotion ?? null) === parsed.promotion
+    ) {
+      return move;
+    }
+  }
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Perft — the proof
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Count every distinct sequence of legal moves of the given length.
+ *
+ * This is how a chess rules engine is proved correct. The numbers for well-known
+ * positions have been published and independently confirmed for decades, so if
+ * ours match, every rule above is right — and if a single rule is wrong anywhere,
+ * some count comes out wrong. It is far more searching than any hand-written test
+ * could be: depth 3 from the starting position checks 8,902 sequences.
+ */
+export function perft(pos, depth) {
+  if (depth <= 0) return 1;
+  const moves = legalMoves(pos);
+  if (depth === 1) return moves.length;
+
+  let total = 0;
+  for (const move of moves) {
+    total += perft(makeMove(pos, move), depth - 1);
+  }
+  return total;
+}
+
+/**
+ * Perft split by first move — "divide" in chess-engine jargon.
+ *
+ * When a perft count is wrong, this is how you find out where: run it against a
+ * known-good engine and the move whose subtotal differs is the one whose rules
+ * are broken. Kept because it is the debugging tool for every future rules bug.
+ */
+export function perftDivide(pos, depth) {
+  const result = {};
+  for (const move of legalMoves(pos)) {
+    result[moveToUci(move)] = perft(makeMove(pos, move), depth - 1);
+  }
+  return result;
+}
