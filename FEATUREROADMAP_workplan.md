@@ -67,7 +67,7 @@ in three modes and a server at once.
 All of Phase 1 is one file, `public/rules.js`, plus its test. No DOM, no imports, no
 chess library.
 
-- [ ] **1.1 — Board representation, FEN and move notation** · M
+- [x] **1.1 — Board representation, FEN and move notation** · M
   - **Depends on:** 0.3
   - **Files:** `public/rules.js`
   - **Builds:** the 64-square position object from ProductSpec §5.1; `initialPosition()`,
@@ -460,10 +460,14 @@ spectator chat · mobile app builds
 
 ---
 
-## Recommended first task
+## Next task
 
-**1.1 — Board representation, FEN and move notation.**
+**1.2 — Move generation for all six pieces.**
 
-It is the only task with no unticked dependency, it is the foundation every other file
-imports, and it makes the next six tasks small. It also produces something checkable within
-an hour: a starting position that prints the right FEN string.
+Task 1.1 is done: squares, pieces, positions, FEN and UCI notation are in
+`public/rules.js`, with 27 tests passing. 1.2 is the only unblocked task, and it is the
+biggest single piece of work in the rules module — every later phase depends on it.
+
+It is checkable the moment it exists: from the starting position, the candidate move count
+must be exactly 20. That number is also the first line of the perft proof in 1.8, so 1.2
+either starts the project off correct or shows immediately that it is not.

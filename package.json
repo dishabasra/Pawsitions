@@ -9,8 +9,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "test": "node --test test/",
-    "perft": "node test/perft.js"
+    "test": "node --test test/*.test.js"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"

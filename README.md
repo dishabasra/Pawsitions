@@ -80,7 +80,7 @@ are in the test file too.
 You need [Node.js](https://nodejs.org) version 20 or newer.
 
 ```bash
-git clone https://github.com/dishabasra/Chess.git pawsitions
+git clone https://github.com/dishabasra/pawsitions.git
 cd pawsitions
 npm install
 npm run dev
