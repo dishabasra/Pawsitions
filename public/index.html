@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Pawsitions — a browser chess game where a puppy grows up beside the board.">
+  <meta name="theme-color" content="#FAF5EE">
+  <title>Pawsitions — chess with a puppy</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,900&family=Nunito:wght@400;600;700;800&display=swap">
+
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="art/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+
+<!--
+  The piece artwork. One drawing per piece, used by both colours — the fill and
+  the outline come from CSS tokens, so White and Black can never drift apart.
+  Kept inline because <use href="#id"> only reaches into the same document.
+-->
+<svg width="0" height="0" class="sprite" aria-hidden="true" focusable="false"><defs>
+
+  <!-- Pawn: a puppy's head with floppy ears. -->
+  <symbol id="piece-p" viewBox="0 0 48 48">
+    <ellipse cx="12" cy="25" rx="5" ry="9" fill="currentColor" stroke="var(--piece-stroke)" stroke-width="1.4"/>
+    <ellipse cx="36" cy="25" rx="5" ry="9" fill="currentColor" stroke="var(--piece-stroke)" stroke-width="1.4"/>
+    <circle cx="24" cy="25" r="13" fill="currentColor" stroke="var(--piece-stroke)" stroke-width="1.4"/>
+    <ellipse cx="24" cy="31" rx="7" ry="5.5" fill="var(--piece-ink)"/>
+    <circle cx="19" cy="22" r="1.9" fill="var(--piece-ink)"/>
+    <circle cx="29" cy="22" r="1.9" fill="var(--piece-ink)"/>
+    <ellipse cx="24" cy="28.5" rx="2.3" ry="1.8" fill="currentColor"/>
+  </symbol>
+
+  <!-- Knight: a dog's head in profile, with a long snout. -->
+  <symbol id="piece-n" viewBox="0 0 48 48">
+    <ellipse cx="14" cy="14" rx="4.5" ry="8" fill="currentColor" stroke="var(--piece-stroke)" stroke-width="1.4" transform="rotate(-25 14 14)"/>
+    <circle cx="21" cy="26" r="13" fill="currentColor" stroke="var(--piece-stroke)" stroke-width="1.4"/>
+    <path d="M30 22 q11 1 12 7 q-1 6 -12 5 z" fill="currentColor" stroke="var(--piece-stroke)" stroke-width="1.4"/>
+    <ellipse cx="40" cy="28" rx="2.6" ry="2.1" fill="var(--piece-ink)"/>
+    <circle cx="25" cy="22" r="2.1" fill="var(--piece-ink)"/>
+    <path d="M32 33 q5 1 8 0" stroke="var(--piece-ink)" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+  </symbol>
+
+  <!-- Bishop: a puppy in a tall pointed hat. -->
+  <symbol id="piece-b" viewBox="0 0 48 48">
+    <path d="M24 1 L34 17 L14 17 Z" fill="currentColor" stroke="var(--piece-stroke)" stroke-width="1.4" stroke-linejoin="round"/>
+    <circle cx="24" cy="3" r="2.6" fill="var(--piece-ink)"/>
+    <rect x="13" y="14.5" width="22" height="3.4" rx="1.7" fill="var(--piece-ink)"/>
+    <ellipse cx="12" cy="29" rx="4.6" ry="8" fill="currentColor" stroke="var(--piece-stroke)" stroke-width="1.4"/>
+    <ellipse cx="36" cy="29" rx="4.6" ry="8" fill="currentColor" stroke="var(--piece-stroke)" stroke-width="1.4"/>
+    <circle cx="24" cy="29" r="12" fill="currentColor" stroke="var(--piece-stroke)" stroke-width="1.4"/>
+    <ellipse cx="24" cy="34" rx="6.2" ry="4.8" fill="var(--piece-ink)"/>
+    <circle cx="19.5" cy="27" r="1.7" fill="var(--piece-ink)"/>
+    <circle cx="28.5" cy="27" r="1.7" fill="var(--piece-ink)"/>
+  </symbol>
+
+  <!-- Rook: a doghouse, with a puppy peeking out of the door. -->
+  <symbol id="piece-r" viewBox="0 0 48 48">
+    <path d="M24 4 L45 21 L3 21 Z" fill="currentColor" stroke="var(--piece-stroke)" stroke-width="1.4" stroke-linejoin="round"/>
+    <rect x="8" y="20" width="32" height="24" rx="3" fill="currentColor" stroke="var(--piece-stroke)" stroke-width="1.4"/>
+    <path d="M16 44 v-13 a8 8 0 0 1 16 0 v13 z" fill="var(--piece-ink)"/>
+    <ellipse cx="19" cy="36" rx="3" ry="5" fill="currentColor"/>
+    <ellipse cx="29" cy="36" rx="3" ry="5" fill="currentColor"/>
+    <circle cx="24" cy="36" r="6" fill="currentColor"/>
+    <circle cx="21.5" cy="34.5" r="1.1" fill="var(--piece-ink)"/>
+    <circle cx="26.5" cy="34.5" r="1.1" fill="var(--piece-ink)"/>
+  </symbol>
+
+  <!-- Queen: a puppy in a three-point tiara. -->
+  <symbol id="piece-q" viewBox="0 0 48 48">
+    <path d="M13 17 L16 6 L24 13 L32 6 L35 17 Z" fill="var(--piece-ink)"/>
+    <circle cx="16" cy="5" r="2.4" fill="var(--piece-ink)"/>
+    <circle cx="32" cy="5" r="2.4" fill="var(--piece-ink)"/>
+    <circle cx="24" cy="11" r="2.4" fill="var(--piece-ink)"/>
+    <ellipse cx="12" cy="30" rx="4.6" ry="8" fill="currentColor" stroke="var(--piece-stroke)" stroke-width="1.4"/>
+    <ellipse cx="36" cy="30" rx="4.6" ry="8" fill="currentColor" stroke="var(--piece-stroke)" stroke-width="1.4"/>
+    <circle cx="24" cy="30" r="12" fill="currentColor" stroke="var(--piece-stroke)" stroke-width="1.4"/>
+    <ellipse cx="24" cy="35" rx="6.2" ry="4.8" fill="var(--piece-ink)"/>
+    <circle cx="19.5" cy="28" r="1.7" fill="var(--piece-ink)"/>
+    <circle cx="28.5" cy="28" r="1.7" fill="var(--piece-ink)"/>
+  </symbol>
+
+  <!-- King: a puppy in a crown. -->
+  <symbol id="piece-k" viewBox="0 0 48 48">
+    <path d="M24 0 v9 M19.5 4.5 h9" stroke="var(--piece-ink)" stroke-width="3.2" stroke-linecap="round" fill="none"/>
+    <path d="M12 18 L12 9 L18 14 L24 7 L30 14 L36 9 L36 18 Z" fill="var(--piece-ink)"/>
+    <ellipse cx="12" cy="31" rx="4.6" ry="8" fill="currentColor" stroke="var(--piece-stroke)" stroke-width="1.4"/>
+    <ellipse cx="36" cy="31" rx="4.6" ry="8" fill="currentColor" stroke="var(--piece-stroke)" stroke-width="1.4"/>
+    <circle cx="24" cy="31" r="12" fill="currentColor" stroke="var(--piece-stroke)" stroke-width="1.4"/>
+    <ellipse cx="24" cy="36" rx="6.2" ry="4.8" fill="var(--piece-ink)"/>
+    <circle cx="19.5" cy="29" r="1.7" fill="var(--piece-ink)"/>
+    <circle cx="28.5" cy="29" r="1.7" fill="var(--piece-ink)"/>
+  </symbol>
+
+  <!--
+    Biscuit, sitting. Three drawings rather than one scaled up: a puppy is round
+    with a big head, a grown dog is longer in the muzzle and leg. The proportions
+    are what make the growing read, not the size.
+  -->
+  <symbol id="dog-1" viewBox="0 0 64 64">
+    <ellipse cx="32" cy="52" rx="16" ry="11" fill="currentColor" stroke="var(--dog-stroke)" stroke-width="1.6"/>
+    <g class="dog-tail"><path d="M46 52 q9 2 7 -6" stroke="var(--dog-stroke)" stroke-width="8" stroke-linecap="round" fill="none"/><path d="M46 52 q9 2 7 -6" stroke="currentColor" stroke-width="5" stroke-linecap="round" fill="none"/></g>
+    <ellipse cx="17" cy="27" rx="5" ry="8.5" fill="currentColor" stroke="var(--dog-stroke)" stroke-width="1.6"/>
+    <ellipse cx="47" cy="27" rx="5" ry="8.5" fill="currentColor" stroke="var(--dog-stroke)" stroke-width="1.6"/>
+    <circle cx="32" cy="28" r="16" fill="currentColor" stroke="var(--dog-stroke)" stroke-width="1.6"/>
+    <ellipse cx="32" cy="35" rx="8.5" ry="6.5" fill="var(--dog-ink)"/>
+    <circle cx="26" cy="25" r="2.3" fill="var(--dog-ink)"/>
+    <circle cx="38" cy="25" r="2.3" fill="var(--dog-ink)"/>
+    <ellipse cx="32" cy="32" rx="2.8" ry="2.1" fill="currentColor" stroke="var(--dog-stroke)" stroke-width="1.6"/>
+    <path d="M32 34 v2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+  </symbol>
+
+  <symbol id="dog-2" viewBox="0 0 64 64">
+    <ellipse cx="32" cy="50" rx="17" ry="13" fill="currentColor" stroke="var(--dog-stroke)" stroke-width="1.6"/>
+    <g class="dog-tail"><path d="M48 50 q11 2 8 -8" stroke="var(--dog-stroke)" stroke-width="8" stroke-linecap="round" fill="none"/><path d="M48 50 q11 2 8 -8" stroke="currentColor" stroke-width="5" stroke-linecap="round" fill="none"/></g>
+    <ellipse cx="18" cy="23" rx="5.5" ry="10" fill="currentColor" stroke="var(--dog-stroke)" stroke-width="1.6"/>
+    <ellipse cx="46" cy="23" rx="5.5" ry="10" fill="currentColor" stroke="var(--dog-stroke)" stroke-width="1.6"/>
+    <circle cx="32" cy="25" r="15" fill="currentColor" stroke="var(--dog-stroke)" stroke-width="1.6"/>
+    <ellipse cx="32" cy="33" rx="9" ry="7.5" fill="var(--dog-ink)"/>
+    <circle cx="26" cy="22" r="2.2" fill="var(--dog-ink)"/>
+    <circle cx="38" cy="22" r="2.2" fill="var(--dog-ink)"/>
+    <ellipse cx="32" cy="29.5" rx="3" ry="2.2" fill="currentColor" stroke="var(--dog-stroke)" stroke-width="1.6"/>
+    <path d="M32 32 v2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+    <circle cx="24" cy="57" r="4" fill="var(--dog-ink)"/>
+    <circle cx="40" cy="57" r="4" fill="var(--dog-ink)"/>
+  </symbol>
+
+  <symbol id="dog-3" viewBox="0 0 64 64">
+    <ellipse cx="32" cy="48" rx="18" ry="15" fill="currentColor" stroke="var(--dog-stroke)" stroke-width="1.6"/>
+    <g class="dog-tail"><path d="M49 47 q13 1 10 -10" stroke="var(--dog-stroke)" stroke-width="8.5" stroke-linecap="round" fill="none"/><path d="M49 47 q13 1 10 -10" stroke="currentColor" stroke-width="5.5" stroke-linecap="round" fill="none"/></g>
+    <ellipse cx="18" cy="20" rx="6" ry="11.5" fill="currentColor" stroke="var(--dog-stroke)" stroke-width="1.6"/>
+    <ellipse cx="46" cy="20" rx="6" ry="11.5" fill="currentColor" stroke="var(--dog-stroke)" stroke-width="1.6"/>
+    <circle cx="32" cy="23" r="14.5" fill="currentColor" stroke="var(--dog-stroke)" stroke-width="1.6"/>
+    <ellipse cx="32" cy="32" rx="9.5" ry="8.5" fill="var(--dog-ink)"/>
+    <circle cx="26" cy="20" r="2.2" fill="var(--dog-ink)"/>
+    <circle cx="38" cy="20" r="2.2" fill="var(--dog-ink)"/>
+    <ellipse cx="32" cy="28" rx="3.2" ry="2.3" fill="currentColor" stroke="var(--dog-stroke)" stroke-width="1.6"/>
+    <path d="M32 30.5 v3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+    <circle cx="23" cy="57" r="4.5" fill="var(--dog-ink)"/>
+    <circle cx="41" cy="57" r="4.5" fill="var(--dog-ink)"/>
+    <path d="M25 40 q7 4 14 0" stroke="var(--dog-ink)" stroke-width="2" fill="none" stroke-linecap="round"/>
+  </symbol>
+
+  <!-- A dog treat, for the bowl. -->
+  <symbol id="treat" viewBox="0 0 24 24">
+    <path d="M5 8a3 3 0 1 1 3 3h8a3 3 0 1 1 3-3 3 3 0 1 1-3 3H8a3 3 0 1 1-3-3z" fill="currentColor"/>
+    <rect x="7" y="9.5" width="10" height="5" rx="2" fill="currentColor"/>
+  </symbol>
+
+  <!-- The bowl the treats land in. -->
+  <symbol id="bowl" viewBox="0 0 48 24">
+    <path d="M4 6 h40 l-5 14 a4 4 0 0 1 -4 3 h-22 a4 4 0 0 1 -4 -3 z" fill="currentColor"/>
+    <ellipse cx="24" cy="6" rx="20" ry="4" fill="var(--dog-ink)"/>
+  </symbol>
+
+</defs></svg>
+
+<div class="shell">
+  <header class="topbar">
+    <a class="brand" href="#/" aria-label="Pawsitions — home">
+      <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><use href="#dog-1"></use></svg>
+      <span class="brand-name">Pawsitions</span>
+    </a>
+    <div class="topbar-actions" id="topbar-actions"></div>
+  </header>
+
+  <main id="screen" class="screen"></main>
+
+  <!--
+    Screen-reader announcements. Anything that changes the state of the game is
+    written here as a sentence, so a blind player hears "White is in check"
+    rather than being left to infer it from the board.
+  -->
+  <p id="announcer" class="visually-hidden" role="status" aria-live="polite"></p>
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

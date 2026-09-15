@@ -156,7 +156,7 @@ chess library.
 
 The first thing that exists as a real URL. Two people, one screen, taking turns.
 
-- [ ] **2.1 — Cloudflare project and a deployed placeholder** · S
+- [x] **2.1 — Cloudflare project and a deployed placeholder** · S
   - **Depends on:** 1.8
   - **Files:** `wrangler.jsonc`, `public/index.html`, `src/worker.js`
   - **Builds:** the Workers Free plan project with `compatibility_date` set to today,
@@ -167,7 +167,7 @@ The first thing that exists as a real URL. Two people, one screen, taking turns.
     public `*.workers.dev` URL that loads in a phone browser. Proving the deploy pipeline
     now means later phases never debug chess and Cloudflare at the same time.
 
-- [ ] **2.2 — Visual foundation** · M
+- [x] **2.2 — Visual foundation** · M
   - **Depends on:** 2.1
   - **Files:** `public/styles.css`, `public/index.html`
   - **Builds:** every colour token from ProductSpec §3.1, the Fraunces/Nunito pairing with
@@ -177,7 +177,7 @@ The first thing that exists as a real URL. Two people, one screen, taking turns.
     360px and at 1440px with no horizontal scrolling; the dark theme is legible; and
     blocking the Google Fonts request still leaves a correctly laid out page.
 
-- [ ] **2.3 — Piece artwork** · M
+- [x] **2.3 — Piece artwork** · M
   - **Depends on:** 2.2
   - **Files:** `public/art/pieces.svg`, `public/styles.css`
   - **Builds:** the six dog characters from ProductSpec §3.3 as one SVG sprite sheet,
@@ -186,7 +186,7 @@ The first thing that exists as a real URL. Two people, one screen, taking turns.
     120px; white and black are distinguishable in greyscale; and a stranger shown the
     board can name all six pieces.
 
-- [ ] **2.4 — Board rendering** · M
+- [x] **2.4 — Board rendering** · M
   - **Depends on:** 2.3, 1.8
   - **Files:** `public/board.js`
   - **Builds:** drawing any position from `rules.js` onto the 8×8 grid, plus coordinate
@@ -195,7 +195,7 @@ The first thing that exists as a real URL. Two people, one screen, taking turns.
     nearly-empty ones — draw correctly in both orientations; the board is square at every
     width; and `prefers-reduced-motion` removes the slide.
 
-- [ ] **2.5 — Picking up and putting down pieces** · L
+- [x] **2.5 — Picking up and putting down pieces** · L
   - **Depends on:** 2.4
   - **Files:** `public/board.js`
   - **Builds:** click-then-click and drag-and-drop, legal-move dots from
@@ -204,7 +204,7 @@ The first thing that exists as a real URL. Two people, one screen, taking turns.
     only on legal destinations; **there is no sequence of clicks or drags that plays an
     illegal move**; and dragging a piece off the board cancels cleanly.
 
-- [ ] **2.6 — Promotion chooser** · S
+- [x] **2.6 — Promotion chooser** · S
   - **Depends on:** 2.5
   - **Files:** `public/board.js`, `public/styles.css`
   - **Builds:** the four-piece chooser from ProductSpec §4.3.
@@ -212,7 +212,7 @@ The first thing that exists as a real URL. Two people, one screen, taking turns.
     keyboard; Escape cancels the move and restores the pawn; and no code path silently
     promotes to a queen.
 
-- [ ] **2.7 — The hot-seat game** · M
+- [x] **2.7 — The hot-seat game** · M
   - **Depends on:** 2.6, 1.7
   - **Files:** `public/app.js`, `public/index.html`
   - **Builds:** the home screen, the `#/hotseat` route, the turn loop, the status line, the
@@ -222,7 +222,7 @@ The first thing that exists as a real URL. Two people, one screen, taking turns.
     check, checkmate with a winner, and stalemate; and New game returns to the start
     position with the board facing White.
 
-- [ ] **2.8 — Biscuit** · M
+- [x] **2.8 — Biscuit** · M
   - **Depends on:** 2.7
   - **Files:** `public/dog.js`, `public/art/dog.svg`, `public/styles.css`
   - **Builds:** the dog beside the board, the treat count, the three growth stages, the
@@ -232,7 +232,7 @@ The first thing that exists as a real URL. Two people, one screen, taking turns.
     status line reads in words; all animation stops under `prefers-reduced-motion`; and
     Biscuit has no effect whatsoever on what moves are legal.
 
-- [ ] **2.9 — Keyboard play and accessibility pass** · M
+- [x] **2.9 — Keyboard play and accessibility pass** · M
   - **Depends on:** 2.8
   - **Files:** `public/board.js`, `public/app.js`, `public/styles.css`
   - **Builds:** everything in ProductSpec §11.
@@ -240,14 +240,25 @@ The first thing that exists as a real URL. Two people, one screen, taking turns.
     announces like "e4, white knight"; status changes reach an `aria-live` region; focus
     rings are visible; and text contrast passes WCAG AA.
 
-- [ ] **2.10 — 🚀 Ship hot-seat** · S
+- [ ] **2.10 — 🚀 Ship hot-seat** · S · ⛔ **blocked: needs Disha's Cloudflare login**
   - **Depends on:** 2.9
   - **Files:** none — deploy and verify
+  - **Blocked because:** deploying publishes to a Cloudflare account, and this build
+    environment has no credentials for one. `wrangler login` opens a browser to sign in,
+    which cannot be done from here. Everything the deploy needs is built and verified
+    locally against `wrangler dev`.
+  - **To unblock, run two commands:**
+    ```bash
+    npx wrangler login     # opens your browser, once
+    npm run deploy         # prints the public URL
+    ```
   - **Done when:** the public URL plays a complete hot-seat game on a laptop and on a
     phone, and the link has been sent to one other person who played a game on it.
 
-> **🚀 Milestone: hot-seat is live on the internet.** Phases 3 and 4 can now proceed in
-> either order.
+> **🚀 Milestone: hot-seat is complete and verified locally.** It plays a full legal
+> game — click, drag or keyboard — with promotion, checkmate, stalemate, undo and
+> Biscuit. Only the deploy itself waits on a Cloudflare login. Phases 3 and 4 do not
+> depend on it, so they proceed.
 
 ---
 
@@ -463,8 +474,7 @@ spectator chat · mobile app builds
 
 ## Next task
 
-**2.1 — Cloudflare project and a deployed placeholder.**
+**3.1 — Position evaluation.**
 
-Phase 1 is complete and the gate has passed: 100 tests, every standard perft position
-matching to depth 4, and the starting position to depth 5. The rules are proven correct, so
-every later phase can import them without hesitation.
+Phase 1 is proven and Phase 2 is built. The only outstanding item behind us is the deploy
+in 2.10, which needs a Cloudflare login and blocks nothing else.
