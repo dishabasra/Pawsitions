@@ -459,15 +459,16 @@ Built last, on purpose. Off by default, so a normal game is unaffected.
 
 ## Phase 7 — Designs back into Figma
 
-- [ ] **7.1 — Publish the design to Figma** · M
+- [x] **7.1 — Publish the design to Figma** · M
   - **Depends on:** 2.10
   - **Files:** none in this repo
   - **Builds:** a Figma file containing the colour tokens, the type scale, the piece
     artwork as components, and the Home and Game screens as frames.
-  - **Done when:** the file exists in Disha's Figma and its colours and spacing match
-    `styles.css`. **Known risk:** the Figma account currently has a *View* seat, which is
-    read-only — if writing is blocked, this task is reported as blocked rather than
-    quietly skipped, and the artwork is delivered as SVG files instead.
+  - **Done:** <https://www.figma.com/design/02ulesTrdOya1txt3Y2Jwc>. The View seat did not
+    block writing after all. The file holds all 16 colour tokens as real Figma variables
+    with the swatches bound to them (so editing a swatch edits the token), the Fraunces and
+    Nunito type scale, all six pieces in both colourways as editable vectors, and the board
+    at the starting position.
 
 ---
 
@@ -479,8 +480,13 @@ spectator chat · mobile app builds
 
 ---
 
-## Next task
+## What is left
 
-**2.10 — the deploy**, which needs a Cloudflare login and is the only thing left. Every
-feature is built and verified locally; 3.4 and 4.6 are the same deploy seen from the other
-two modes, and 7.1 is the optional Figma push.
+**2.10 / 3.4 / 4.6 — the deploy.** One Cloudflare login, then one command. Everything else
+in this roadmap is ticked, and every feature has been verified locally against
+`wrangler dev`.
+
+```bash
+npx wrangler login
+npm run deploy
+```

@@ -444,8 +444,22 @@ Three power-ups, one use each per player per game:
 | Power-up | Effect |
 | --- | --- |
 | **Fetch** | Take back your last move and the reply to it. Hot-seat and Vs Computer only. |
-| **Shield** | Choose one of your pieces. The next attempt to capture it fails, and the shield is spent. |
+| **Shield** | Choose one of your pieces. It cannot be captured during your opponent's next move. |
 | **Sniff** | Highlights the strongest move for you for five seconds. Uses the same engine as Vs Computer. |
+
+### Why Shield lasts one move rather than absorbing one hit
+
+The first draft of this spec said "the next attempt to capture it fails, and the shield is
+spent". Building it revealed that this cannot be done as a filter, and a filter is the only
+tool available: a move that is filtered out of the legal list is never offered, so it can
+never be attempted, so the shield would never be spent — which is permanent immunity, not
+one save. Letting the attempt happen and bounce would mean teaching `makeMove` about
+shields, which is precisely what must not happen.
+
+So a shield protects a piece for the opponent's next move and then lapses. One move of
+safety, nothing to abuse, and it needs nothing from `rules.js` but the list of moves it
+already returns. A shielded piece still attacks and still blocks check — it is only immune
+to being taken.
 
 ### Design rule that protects the chess
 
@@ -461,7 +475,12 @@ byte-for-byte the plain game. This keeps the perft proof meaningful — it is te
 same `legalMoves` the real game uses.
 
 Online: shields and remaining uses live in the Durable Object and are validated there like
-any move. A client cannot grant itself a fourth power-up.
+any move — the same `applyShields` filter runs on every incoming move, so a shielded
+capture sent straight down the socket is refused. **Fetch is not offered online**: taking
+back a move is not one player's to decide. **Sniff never reaches the server**, because it
+only asks the engine running in the asking player's own browser and changes nothing anyone
+else can see. Whether a room uses Treat Mode at all is set by the first player in, and can
+only be changed before the first move.
 
 ---
 

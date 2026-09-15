@@ -4,6 +4,10 @@
 
 Built by **Disha Basra**.
 
+> **Status:** everything is built and tested. 148 tests pass, including the perft proof of
+> the chess rules. The one thing left is the deploy itself, which needs a Cloudflare login —
+> see [Deploying](#deploying), two commands.
+
 Every piece you capture drops a treat in Biscuit's bowl. Enough treats and he grows —
 puppy, then young dog, then Good Dog — wagging away next to the board while you play.
 It is real chess underneath: every rule, every edge case, no shortcuts.
@@ -66,12 +70,16 @@ From the starting position:
 Run it yourself:
 
 ```bash
-npm test
+npm test                  # about 12 seconds
+PERFT_DEEP=1 npm test     # also depth 5 — 4,865,609 sequences
 ```
 
-The rules are not considered finished until those three numbers match exactly. Several
-harder positions — ones designed specifically to catch castling and en-passant bugs —
-are in the test file too.
+**All three match.** So do several harder positions — Kiwipete, and the standard positions
+3, 4 and 5 — which exist specifically to catch castling and en-passant bugs that the
+starting position never exercises. Position 4 is also run with the colours mirrored, which
+catches any rule written for White and not for Black.
+
+148 tests pass in total.
 
 ---
 
@@ -105,6 +113,9 @@ npm run deploy
 ```
 
 Wrangler prints the public URL when it finishes. That link is the game — send it to anyone.
+
+The first `deploy` also creates the Durable Object that online rooms live in; nothing else
+needs setting up, and it all fits inside the Workers Free plan.
 
 ---
 
@@ -163,20 +174,28 @@ pawsitions/
 ├── ProductSpec.md              what it looks like and how it behaves
 ├── FEATUREROADMAP_workplan.md  the build order, as checkboxes
 ├── public/                     everything the browser downloads
-│   ├── index.html
-│   ├── styles.css
+│   ├── index.html              the page, and the piece artwork as one SVG sprite
+│   ├── styles.css              every colour in the game, declared once as tokens
 │   ├── rules.js                ← the chess rules. Shared by every mode AND the server.
+│   ├── game.js                 one game's state: history, captures, undo
 │   ├── engine.js               the computer opponent
 │   ├── board.js                drawing the board, clicking and dragging
-│   ├── app.js                  screens, menus, game state
+│   ├── app.js                  screens, routing, the loop that runs a game
 │   ├── online.js               the WebSocket client
+│   ├── powerups.js             Treat Mode, wrapping rules.js without touching it
 │   ├── dog.js                  Biscuit
-│   ├── audio.js                music and move sounds
-│   └── art/                    piece artwork
+│   ├── audio.js                music and move sounds, generated not downloaded
+│   └── art/favicon.svg
 ├── src/
 │   └── worker.js               the Worker and the Room Durable Object
 └── test/
-    └── perft.test.js           the proof that the rules are correct
+    ├── perft.test.js           the proof that the rules are correct
+    ├── positions.js            the standard perft positions
+    ├── rules.fen.test.js       squares, pieces, FEN, notation
+    ├── rules.moves.test.js     one test per rule, so a failure names the rule
+    ├── engine.test.js          the computer plays well enough, and fast enough
+    ├── game.test.js            captures, material count, undo
+    └── powerups.test.js        Treat Mode, and that switching it off changes nothing
 ```
 
 `rules.js` lives in `public/` because the browser loads it directly. The server imports
@@ -209,6 +228,27 @@ Terms used above and in the other documents, defined once.
 - **WebSocket** — an always-open two-way connection between browser and server.
 - **Worker** — the code Cloudflare runs for us when a request arrives.
 - **Wrangler** — Cloudflare's command-line tool for running and deploying Workers.
+
+---
+
+## Treat Mode
+
+An optional switch on the home screen, **off** unless you turn it on, which adds three
+one-use power-ups per player per game:
+
+| | |
+| --- | --- |
+| **Shield** | Protect one of your pieces for your opponent's next move. |
+| **Fetch** | Take back your last move and the reply to it. Not available online. |
+| **Sniff** | Biscuit points at the strongest move for you, for five seconds. |
+
+With the switch off, a game of Pawsitions is plain, legal chess. That is enforced rather
+than hoped for: Treat Mode lives in its own file that *wraps* `rules.js` rather than
+changing it, and when the switch is off the wrapper hands back the very same list of moves
+it was given. A test asserts that literally — not an equal list, the same object — so the
+plain game provably runs the code the perft proof describes.
+
+Online, the server checks power-ups exactly as it checks moves.
 
 ---
 
