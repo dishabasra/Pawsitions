@@ -77,6 +77,12 @@
   /* How much room the meadow takes along the bottom. */
   --meadow-h: 196px;
 
+  /* How much room the chrome above the board takes. Measured by app.js, because
+     the top bar is 74px on a desktop and twice that on a phone — a hardcoded
+     guess is wrong on one of them by definition. This value is only the fallback
+     for the moment before the first measurement lands. */
+  --chrome: 124px;
+
   color-scheme: light dark;
 }
 
@@ -134,9 +140,13 @@ html, body { height: 100%; }
 
 body {
   margin: 0;
+  /* An explicit colour first: the shorthand below sets only images, so without
+     this the body's background-COLOUR stays transparent and a page that failed
+     to paint the gradients would show the browser's white. */
+  background-color: var(--paper);
   /* A soft warm wash rather than a flat fill, so the board has something to sit
      on. Fixed, so it does not slide about as the page scrolls. */
-  background:
+  background-image:
     radial-gradient(1100px 540px at 16% -10%, color-mix(in srgb, var(--blossom) 20%, transparent), transparent 64%),
     radial-gradient(940px 500px at 86% 2%, color-mix(in srgb, var(--coat) 34%, transparent), transparent 62%),
     linear-gradient(174deg, var(--paper) 0%, var(--paper-2) 100%);
@@ -317,6 +327,9 @@ button { font: inherit; color: inherit; }
   color: var(--ink-soft);
   padding-inline: 12px;
 }
+
+.btn--toggle { gap: 6px; }
+.toggle-icon { font-size: 15px; line-height: 1; }
 .btn--quiet:hover:not(:disabled) { background: var(--sunken); border-color: transparent; }
 
 .btn--danger:hover:not(:disabled) { border-color: var(--warn); color: var(--warn); }
@@ -422,7 +435,7 @@ button { font: inherit; color: inherit; }
   /* The board fills the space between the top bar and the meadow, so the whole
      game sits on one screen with nothing scrolled off and nothing overlapping.
      124px is the top bar (74) plus the page's top padding (28) plus a gap. */
-  --board-size: max(272px, min(100%, 620px, calc(100dvh - var(--meadow-h) - 124px)));
+  --board-size: max(248px, min(100%, 620px, calc(100dvh - var(--meadow-h) - var(--chrome))));
   position: relative;
   width: var(--board-size);
   min-width: 280px;
@@ -824,14 +837,73 @@ body.has-meadow .screen {
 }
 .treat-fly svg { width: 100%; height: 100%; display: block; }
 
+/* ── phones ─────────────────────────────────────────────────────────────── */
+
 @media (max-width: 720px) {
   :root { --meadow-h: 160px; }
+
+  /* One row, not three. The bar was 176px tall on an iPhone SE — a quarter of
+     the screen — because the brand and both toggle groups each wrapped. */
+  .topbar {
+    flex-wrap: nowrap;
+    gap: 6px;
+    padding: 10px 14px;
+    padding-top: calc(10px + env(safe-area-inset-top, 0px));
+  }
+  .topbar-actions { flex-wrap: nowrap; gap: 2px; }
+  .brand-name { font-size: 19px; }
+  .brand-mark { width: 30px; height: 30px; }
+  .btn { min-height: 44px; padding: 9px 13px; font-size: 14px; }
+  .btn--quiet { padding-inline: 9px; }
+  .screen { padding-inline: 16px; padding-block: 16px 20px; }
   .pup { width: 94px; bottom: 40px; }
   .bowl { width: 46px; bottom: 32px; }
   .meadow-ground { height: 78px; }
   .tuft { width: 20px; bottom: 26px; }
   .flower { width: 18px; bottom: 42px; }
   .pup-label { font-size: 11px; }
+}
+
+/* Below this the words beside the note symbols cost more than they are worth;
+   the symbol plus an accessible name does the same job. */
+@media (max-width: 540px) {
+  .toggle-label {
+    position: absolute !important;
+    width: 1px; height: 1px;
+    margin: -1px; padding: 0; border: 0;
+    clip-path: inset(50%);
+    overflow: hidden; white-space: nowrap;
+  }
+  /* An icon-only button still needs a finger-sized target: 35px was too small
+     to hit reliably, and both platforms' guidance lands around 44. */
+  .btn--toggle { padding-inline: 0; min-width: 44px; min-height: 44px; justify-content: center; }
+  .toggle-icon { font-size: 18px; line-height: 1; }
+  .btn--toggle[aria-pressed="true"] { color: var(--biscuit-deep); background: var(--sunken); }
+}
+
+/* ── short screens: a phone held sideways ───────────────────────────────────
+   There is not enough height for a fixed strip of grass AND a board worth
+   playing on. Rather than let one cover the other, the meadow stops being
+   pinned to the bottom and simply flows at the end of the page — so nothing
+   ever overlaps, and you scroll down to find the dogs. */
+
+@media (max-height: 620px) {
+  :root { --meadow-h: 150px; }
+
+  .meadow {
+    position: relative;
+    height: var(--meadow-h);
+    margin-top: 20px;
+    z-index: 1;
+  }
+
+  body.has-meadow .screen {
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* With the meadow out of the way the board has more room, but it still has
+     to fit the screen — otherwise half of it is below the fold. */
+  .board { --board-size: max(220px, min(100%, 620px, calc(100dvh - var(--chrome) - 24px))); }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -1016,7 +1088,7 @@ body.has-meadow .screen {
 .treat-btn {
   flex: 1 1 auto;
   min-width: 82px;
-  min-height: 40px;
+  min-height: 44px;
   padding: 7px 12px;
   border: 1.5px solid var(--rule);
   border-radius: 12px;

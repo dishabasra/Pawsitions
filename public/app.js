@@ -77,22 +77,28 @@ function switchControl({ title, blurb, isOn, onChange }) {
 function soundToggles() {
   const wrap = el('div', 'topbar-actions');
 
-  const make = (key, onLabel, offLabel, isOn, set) => {
-    const node = el('button', 'btn btn--quiet');
+  const make = (icon, name, isOn, set) => {
+    const node = el('button', 'btn btn--quiet btn--toggle');
     node.type = 'button';
+    // The icon and the words are separate elements so a narrow screen can drop
+    // the words and keep a tappable icon, rather than wrapping the whole bar
+    // onto a third row.
+    const mark = el('span', 'toggle-icon', icon);
+    const label = el('span', 'toggle-label');
+    node.append(mark, label);
     const paint = () => {
       const on = isOn();
-      node.textContent = on ? onLabel : offLabel;
+      label.textContent = `${name} ${on ? 'on' : 'off'}`;
       node.setAttribute('aria-pressed', String(on));
-      node.setAttribute('aria-label', `${onLabel.replace(/^\S+\s/, '')}: ${on ? 'on' : 'off'}`);
+      node.setAttribute('aria-label', `${name}: ${on ? 'on' : 'off'}`);
     };
     node.addEventListener('click', async () => { await set(!isOn()); paint(); });
     paint();
     return { node, paint };
   };
 
-  const music = make('music', '♫ Music on', '♫ Music off', () => sound.musicOn, (v) => sound.setMusic(v));
-  const sfx = make('sfx', '♪ Sounds on', '♪ Sounds off', () => sound.sfxOn, (v) => sound.setSfx(v));
+  const music = make('♫', 'Music', () => sound.musicOn, (v) => sound.setMusic(v));
+  const sfx = make('♪', 'Sounds', () => sound.sfxOn, (v) => sound.setSfx(v));
 
   // The same two settings can be changed from the home screen, so repaint these
   // whenever they move rather than letting the two views disagree.
@@ -1053,10 +1059,35 @@ function route() {
   }
 }
 
+/**
+ * Tell the stylesheet how much room the chrome above the board actually takes.
+ *
+ * The board is sized to fit between the top bar and the meadow. That gap was a
+ * hardcoded 124px, which is right on a desktop and wrong on a phone, where the
+ * top bar is twice as tall — so the board ran under the grass. Measuring it
+ * means the board fits exactly on whatever device it lands on, including ones
+ * that did not exist when this was written.
+ */
+function measureChrome() {
+  const topbar = document.querySelector('.topbar');
+  const screenEl = document.getElementById('screen');
+  if (!topbar || !screenEl) return;
+  const padding = parseFloat(getComputedStyle(screenEl).paddingTop) || 0;
+  // 16px of breathing room between the board and the grass.
+  const chrome = Math.round(topbar.getBoundingClientRect().height + padding + 16);
+  document.documentElement.style.setProperty('--chrome', `${chrome}px`);
+}
+
 startBackdrop();
 
 window.addEventListener('hashchange', route);
 route();
+
+measureChrome();
+window.addEventListener('resize', measureChrome);
+window.addEventListener('orientationchange', measureChrome);
+// The top bar's contents change with the screen, so re-measure after each one.
+window.addEventListener('hashchange', () => requestAnimationFrame(measureChrome));
 
 /**
  * Browsers will not let a page make a sound until the person has interacted
