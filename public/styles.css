@@ -19,13 +19,17 @@
  */
 
 :root {
-  /* The board. Warmer and a little fresher than a flat sage — enough green to
-     read as a board, enough cream to stay soft under the artwork. */
-  --sq-light: #F7EBD9;
-  --sq-dark: #9DC6A4;
+  /* The puppy's own coat, so the board and the dog are the same animal. Every
+     beige in the game is this colour or a step either side of it. */
+  --coat: #EFC492;
+
+  /* The board: cream and honey. The dark squares are the coat a shade deeper,
+     which is what ties the board to the dog rather than merely sitting near it. */
+  --sq-light: #FFF7E9;
+  --sq-dark: #D6A87B;
 
   /* Pieces. White and Black share one drawing; only these differ. */
-  --piece-w: #FFFAF2;
+  --piece-w: #FFFFFF;
   --piece-w-ink: #6B4A32;
   --piece-b: #7A5232;
   --piece-b-ink: #FBF1E4;
@@ -37,22 +41,25 @@
   /* A second accent, used sparingly — blossom, hearts, paw pads. */
   --blossom: #F4A0A6;
 
-  /* The meadow the dogs live on. */
-  --grass: #A9D3A8;
-  --grass-deep: #7FB587;
-  --grass-blade: #6FA877;
-  --bloom: #FFF3F4;
+  /* The meadow the dogs live on. Grass stays green — it is grass — but warmed
+     so it sits with the beige rather than fighting it. */
+  --grass: #B3D5A4;
+  --grass-deep: #8CBC85;
+  --grass-blade: #7CAE74;
+  --bloom: #FFF6F1;
   --bloom-heart: #FFD98E;
-  --sky: #DFF1EA;
+
+  /* The bones drifting behind everything. */
+  --drift: #DFB88C;
 
   /* The page. */
-  --paper: #FFF6E9;
-  --paper-2: #FDE9DA;
-  --surface: #FFFDF9;
-  --sunken: #FBEEDD;
+  --paper: #FFF8EC;
+  --paper-2: #FBEBD6;
+  --surface: #FFFCF6;
+  --sunken: #FBF0E0;
   --ink: #4A3527;
   --ink-soft: #8A7360;
-  --rule: #EDD9C2;
+  --rule: #EEDCC5;
 
   /* Meaning, not decoration. Kept separate from the accent. */
   --good: #5E9C68;
@@ -86,11 +93,11 @@
     --biscuit-deep: #E08B53;
     --good: #85BC8E;
     --warn: #E68765;
-    --grass: #4E7A57;
-    --grass-deep: #3C6144;
-    --grass-blade: #6A9A72;
-    --sky: #223029;
+    --grass: #52805A;
+    --grass-deep: #3F6747;
+    --grass-blade: #6E9E76;
     --bloom: #F3E4E4;
+    --drift: #6B5138;
     --shadow: rgba(0, 0, 0, .42);
     --shadow-deep: rgba(0, 0, 0, .58);
   }
@@ -108,11 +115,11 @@
   --biscuit-deep: #E08B53;
   --good: #85BC8E;
   --warn: #E68765;
-  --grass: #4E7A57;
-  --grass-deep: #3C6144;
-  --grass-blade: #6A9A72;
-  --sky: #223029;
+  --grass: #52805A;
+  --grass-deep: #3F6747;
+  --grass-blade: #6E9E76;
   --bloom: #F3E4E4;
+  --drift: #6B5138;
   --shadow: rgba(0, 0, 0, .42);
   --shadow-deep: rgba(0, 0, 0, .58);
 }
@@ -130,9 +137,9 @@ body {
   /* A soft warm wash rather than a flat fill, so the board has something to sit
      on. Fixed, so it does not slide about as the page scrolls. */
   background:
-    radial-gradient(1100px 520px at 18% -8%, color-mix(in srgb, var(--blossom) 24%, transparent), transparent 62%),
-    radial-gradient(900px 480px at 88% 4%, color-mix(in srgb, var(--grass) 26%, transparent), transparent 60%),
-    linear-gradient(176deg, var(--paper) 0%, var(--paper-2) 100%);
+    radial-gradient(1100px 540px at 16% -10%, color-mix(in srgb, var(--blossom) 20%, transparent), transparent 64%),
+    radial-gradient(940px 500px at 86% 2%, color-mix(in srgb, var(--coat) 34%, transparent), transparent 62%),
+    linear-gradient(174deg, var(--paper) 0%, var(--paper-2) 100%);
   background-attachment: fixed;
   color: var(--ink);
   font-family: "Nunito", ui-rounded, "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -166,6 +173,41 @@ button { font: inherit; color: inherit; }
   margin: -1px; padding: 0; border: 0;
   clip-path: inset(50%);
   overflow: hidden; white-space: nowrap;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   The drifting bones
+   ───────────────────────────────────────────────────────────────────────── */
+
+.drift {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  /* Behind the meadow (1) and the page content (2), in front of the body wash. */
+  z-index: 0;
+}
+
+.drift-item {
+  position: absolute;
+  bottom: -18vh;
+  color: var(--drift);
+  opacity: var(--o, .25);
+  transform: translate3d(0, 0, 0);
+  animation: drift var(--dur, 44s) linear var(--delay, 0s) infinite;
+  will-change: transform;
+}
+.drift-item svg { width: 100%; height: auto; display: block; }
+
+@keyframes drift {
+  0%   { transform: translate3d(0, 0, 0) rotate(0deg); }
+  50%  { transform: translate3d(var(--sway, 20px), -62vh, 0) rotate(var(--spin, 20deg)); }
+  100% { transform: translate3d(0, -128vh, 0) rotate(calc(var(--spin, 20deg) * 2)); }
+}
+
+/* A page full of things floating about is exactly what reduced motion is for. */
+@media (prefers-reduced-motion: reduce) {
+  .drift { display: none; }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -209,7 +251,7 @@ button { font: inherit; color: inherit; }
   flex: none;
   border-radius: 10px;
   background: var(--sq-dark);
-  box-shadow: inset 0 0 0 3px var(--sq-light), 0 2px 0 var(--rule);
+  box-shadow: inset 0 0 0 3px var(--sq-light), 0 2px 0 var(--biscuit-deep);
 }
 
 .brand-name {
@@ -1022,5 +1064,6 @@ body.has-meadow .screen {
 }
 .switch[aria-pressed="true"] .switch-track::after { transform: translateX(20px); }
 
+.switch[aria-pressed="true"] .switch-text strong { color: var(--biscuit-deep); }
 .switch-text strong { display: block; font-size: 15px; font-weight: 800; }
 .switch-text span { font-size: 13px; color: var(--ink-soft); }
