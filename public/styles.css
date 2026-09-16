@@ -1,0 +1,807 @@
+/*
+ * Pawsitions — the whole visual system.
+ *
+ * Every colour in the game is declared once, at the top, as a named token. No
+ * other rule in this file, and no line of JavaScript, may use a raw hex value.
+ * That is what makes the theme a decision rather than a habit: changing the
+ * board's green means editing one line, not hunting through a stylesheet.
+ *
+ * Tokens are from ProductSpec.md §3.1.
+ */
+
+:root {
+  /* The board. These two never change with the OS theme — a chess board that
+     changes colour underneath you is disorienting. */
+  --sq-light: #F3EADF;
+  --sq-dark: #9FB89A;
+
+  /* Pieces. White and Black share one drawing; only these differ. */
+  --piece-w: #FFFBF4;
+  --piece-w-ink: #6B5142;
+  --piece-b: #6B5142;
+  --piece-b-ink: #F3EADF;
+
+  /* The accent: Biscuit's collar, move dots, primary buttons. */
+  --biscuit: #E28A5F;
+  --biscuit-deep: #C96E43;
+
+  /* The page around the board. These do follow the OS theme. */
+  --paper: #FAF5EE;
+  --surface: #FFFFFF;
+  --sunken: #F2EADF;
+  --ink: #3B2E27;
+  --ink-soft: #7A6A5F;
+  --rule: #E6DBCB;
+
+  /* Meaning, not decoration. Kept separate from the accent. */
+  --good: #5E8C63;
+  --warn: #C8654A;
+
+  /* The dog's outline. Transparent by default; only the cream dog needs one,
+     because he sits on a cream card. */
+  --dog-stroke: transparent;
+
+  --shadow: rgba(59, 46, 39, .10);
+  --shadow-deep: rgba(59, 46, 39, .20);
+
+  /* Motion. Every duration in the game refers to one of these. */
+  --slide: 180ms;
+  --fade: 90ms;
+  --ease: cubic-bezier(.22, .61, .36, 1);
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #1C1815;
+    --surface: #262019;
+    --sunken: #2F2820;
+    --ink: #F4EDE3;
+    --ink-soft: #B3A392;
+    --rule: #3D342A;
+    --biscuit: #EC9A72;
+    --biscuit-deep: #D9805A;
+    --good: #82B387;
+    --warn: #E08165;
+    --shadow: rgba(0, 0, 0, .40);
+    --shadow-deep: rgba(0, 0, 0, .55);
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper: #1C1815;
+  --surface: #262019;
+  --sunken: #2F2820;
+  --ink: #F4EDE3;
+  --ink-soft: #B3A392;
+  --rule: #3D342A;
+  --biscuit: #EC9A72;
+  --biscuit-deep: #D9805A;
+  --good: #82B387;
+  --warn: #E08165;
+  --shadow: rgba(0, 0, 0, .40);
+  --shadow-deep: rgba(0, 0, 0, .55);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Base
+   ───────────────────────────────────────────────────────────────────────── */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Nunito", ui-rounded, "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+}
+
+.sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+h1, h2, h3 {
+  font-family: "Fraunces", Georgia, "Times New Roman", serif;
+  margin: 0;
+  text-wrap: balance;
+  letter-spacing: -.01em;
+}
+
+button { font: inherit; color: inherit; }
+
+/* Anything focusable must show where focus is. */
+:where(a, button, [tabindex]):focus-visible {
+  outline: 3px solid var(--biscuit);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0; border: 0;
+  clip-path: inset(50%);
+  overflow: hidden; white-space: nowrap;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Shell
+   ───────────────────────────────────────────────────────────────────────── */
+
+.shell {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 20px;
+  padding-top: calc(14px + env(safe-area-inset-top, 0px));
+  border-bottom: 1px solid var(--rule);
+  background: var(--surface);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.brand-mark {
+  width: 34px; height: 34px;
+  color: var(--piece-b);
+  --dog-ink: var(--piece-b-ink);
+  flex: none;
+}
+
+.brand-name {
+  font-family: "Fraunces", Georgia, serif;
+  font-weight: 900;
+  font-size: 22px;
+  letter-spacing: -.015em;
+}
+
+.topbar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.screen {
+  flex: 1;
+  width: 100%;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding-inline: 20px;
+  padding-block: 28px 40px;
+  padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Buttons
+   ───────────────────────────────────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  min-height: 44px;             /* a comfortable touch target */
+  border: 1.5px solid var(--rule);
+  border-radius: 999px;
+  background: var(--surface);
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  transition: border-color 140ms var(--ease), background 140ms var(--ease), transform 90ms var(--ease);
+}
+
+.btn:hover:not(:disabled) { border-color: var(--biscuit); }
+.btn:active:not(:disabled) { transform: translateY(1px); }
+
+.btn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.btn--primary {
+  background: var(--biscuit);
+  border-color: var(--biscuit);
+  color: #FFF8F2;
+}
+.btn--primary:hover:not(:disabled) { background: var(--biscuit-deep); border-color: var(--biscuit-deep); }
+
+.btn--quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-soft);
+  padding-inline: 12px;
+}
+.btn--quiet:hover:not(:disabled) { background: var(--sunken); border-color: transparent; }
+
+.btn--danger:hover:not(:disabled) { border-color: var(--warn); color: var(--warn); }
+
+.btn[aria-pressed="true"] {
+  background: var(--sunken);
+  border-color: var(--biscuit);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Home
+   ───────────────────────────────────────────────────────────────────────── */
+
+.home {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 26px;
+  text-align: center;
+  padding-block: 12px;
+}
+
+.home-dog {
+  width: 120px; height: 120px;
+  color: var(--piece-b);
+  --dog-ink: var(--piece-b-ink);
+}
+
+.home h1 { font-weight: 900; font-size: clamp(32px, 7vw, 46px); line-height: 1.05; }
+
+.home-blurb {
+  margin: 0;
+  max-width: 46ch;
+  color: var(--ink-soft);
+  font-size: 17px;
+}
+
+.home-modes {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.mode-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  padding: 16px 20px;
+  border: 1.5px solid var(--rule);
+  border-radius: 18px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 140ms var(--ease), transform 90ms var(--ease);
+}
+.mode-btn:hover { border-color: var(--biscuit); }
+.mode-btn:active { transform: translateY(1px); }
+
+.mode-btn strong { font-size: 17px; font-weight: 800; }
+.mode-btn span { font-size: 14px; color: var(--ink-soft); }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Game layout
+   ───────────────────────────────────────────────────────────────────────── */
+
+.game {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(250px, 300px);
+  gap: 28px;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .game { grid-template-columns: 1fr; gap: 20px; }
+}
+
+.board-area {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   The board
+   ───────────────────────────────────────────────────────────────────────── */
+
+.board {
+  --board-size: min(100%, 560px);
+  position: relative;
+  width: var(--board-size);
+  min-width: 280px;
+  aspect-ratio: 1;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--sq-light);
+  box-shadow: 0 8px 24px var(--shadow), inset 0 0 0 1px rgba(0, 0, 0, .06);
+  touch-action: manipulation;
+}
+
+.sq {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: default;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sq--dark { background: var(--sq-dark); }
+
+/* Coordinate labels live in their own elements rather than pseudo-elements, so
+   that ::before and ::after stay free for the selection and check overlays — a
+   square can only have one of each, and it can need both at once. */
+.sq-coord {
+  position: absolute;
+  font-size: clamp(8px, 2.2vw, 11px);
+  font-weight: 800;
+  line-height: 1;
+  opacity: .6;
+  pointer-events: none;
+  user-select: none;
+}
+.sq-coord--file { right: 3px; bottom: 2px; }
+.sq-coord--rank { left: 3px; top: 2px; }
+.sq:not(.sq--dark) .sq-coord { color: var(--sq-dark); }
+.sq--dark .sq-coord { color: var(--sq-light); }
+
+/* A piece. */
+.sq svg.piece {
+  width: 80%;
+  height: 80%;
+  display: block;
+  pointer-events: none;
+}
+
+.sq--w { color: var(--piece-w); --piece-ink: var(--piece-w-ink); --piece-stroke: var(--piece-w-ink); }
+.sq--b { color: var(--piece-b); --piece-ink: var(--piece-b-ink); --piece-stroke: #4A3629; }
+
+/* A square the player may pick up from. */
+.sq--playable { cursor: pointer; }
+
+/* The piece currently picked up. */
+.sq--selected::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--biscuit);
+  opacity: .30;
+  pointer-events: none;
+}
+
+/* Where that piece may go: a dot on an empty square, a ring on a capture. */
+.move-hint {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  animation: hint-in var(--fade) var(--ease);
+}
+.move-hint i {
+  display: block;
+  width: 30%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--biscuit);
+  opacity: .6;
+}
+.move-hint--capture i {
+  width: 86%;
+  background: transparent;
+  border: 4px solid var(--biscuit);
+  opacity: .8;
+}
+@keyframes hint-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* The two squares of the move just played. */
+.sq--last { box-shadow: inset 0 0 0 4px color-mix(in srgb, var(--biscuit) 50%, transparent); }
+
+/* A king in check. */
+.sq--check::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, color-mix(in srgb, var(--warn) 75%, transparent) 0%, transparent 70%);
+  pointer-events: none;
+  animation: check-pulse 700ms var(--ease) 2;
+}
+@keyframes check-pulse { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
+
+/* A piece sliding to its destination, played by board.js. */
+.piece--sliding { transition: transform var(--slide) var(--ease); }
+
+/* The keyboard cursor. */
+.sq--cursor { box-shadow: inset 0 0 0 3px var(--ink); z-index: 1; }
+
+/* Refusing a piece that has nowhere to go. */
+.sq--refuse svg.piece { animation: refuse 240ms var(--ease); }
+@keyframes refuse {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-9%); }
+  75% { transform: translateX(9%); }
+}
+
+/* Dragging. */
+.board--dragging { cursor: grabbing; }
+.piece-ghost {
+  position: fixed;
+  z-index: 50;
+  pointer-events: none;
+  opacity: .92;
+  filter: drop-shadow(0 6px 10px var(--shadow-deep));
+}
+.sq--dragging svg.piece { opacity: .25; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Status line
+   ───────────────────────────────────────────────────────────────────────── */
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  background: var(--surface);
+  font-weight: 700;
+  font-size: 16px;
+  min-height: 56px;
+}
+
+.status--check, .status--over { border-color: var(--warn); }
+.status--check .status-dot, .status--over .status-dot { background: var(--warn); }
+
+.status-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--good);
+  flex: none;
+}
+
+.status-sub {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Biscuit and the captured tray
+   ───────────────────────────────────────────────────────────────────────── */
+
+.dog-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.dog-card--active { border-color: var(--biscuit); }
+
+.dog-figure {
+  width: 62px; height: 62px;
+  flex: none;
+  transform-origin: 50% 85%;
+}
+.dog-card--w .dog-figure { color: var(--piece-w); --dog-ink: var(--piece-w-ink); --dog-stroke: var(--piece-w-ink); }
+.dog-card--b .dog-figure { color: var(--piece-b); --dog-ink: var(--piece-b-ink); }
+
+.dog-name { font-weight: 800; font-size: 15px; }
+.dog-stage { font-size: 13px; color: var(--ink-soft); }
+
+.dog-bowl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--biscuit);
+  font-variant-numeric: tabular-nums;
+}
+.dog-bowl svg { width: 22px; height: 11px; color: var(--biscuit); --dog-ink: var(--sunken); }
+
+/* The tail wags, gently and forever. */
+.dog-tail { transform-origin: 75% 80%; }
+.dog-card--active .dog-tail { animation: wag 1.6s var(--ease) infinite; }
+@keyframes wag { 0%, 100% { transform: rotate(-9deg); } 50% { transform: rotate(9deg); } }
+
+/* Reactions. */
+.dog-figure--think { animation: tilt 2s var(--ease) infinite; }
+@keyframes tilt { 0%, 100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
+.dog-figure--happy { animation: spin 900ms var(--ease) 1; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.dog-figure--sad { transform: rotate(90deg) translateY(10%); opacity: .7; }
+
+/* A treat arcing from the captured square into the bowl. */
+.treat-fly {
+  position: fixed;
+  z-index: 40;
+  width: 24px; height: 24px;
+  color: var(--biscuit);
+  pointer-events: none;
+}
+
+.tray {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+  min-height: 26px;
+  margin-top: 6px;
+}
+.tray svg { width: 22px; height: 22px; }
+.tray-score {
+  margin-left: 6px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--biscuit);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Controls
+   ───────────────────────────────────────────────────────────────────────── */
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.controls .btn { flex: 1 1 auto; min-width: 110px; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Promotion chooser
+   ───────────────────────────────────────────────────────────────────────── */
+
+.promo-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--ink) 45%, transparent);
+  border-radius: 14px;
+}
+
+.promo {
+  background: var(--surface);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 0 12px 32px var(--shadow-deep);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+  max-width: 92%;
+}
+
+.promo h2 { font-size: 18px; font-weight: 600; }
+.promo p { margin: 0; font-size: 13px; color: var(--ink-soft); }
+
+.promo-choices { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+
+.promo-choice {
+  width: 66px; height: 66px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--rule);
+  border-radius: 14px;
+  background: var(--sunken);
+  cursor: pointer;
+  transition: border-color 140ms var(--ease), transform 90ms var(--ease);
+}
+.promo-choice:hover, .promo-choice:focus-visible { border-color: var(--biscuit); }
+.promo-choice:active { transform: translateY(1px); }
+.promo-choice svg { width: 84%; height: 84%; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Forms and misc
+   ───────────────────────────────────────────────────────────────────────── */
+
+.card {
+  padding: 20px;
+  border: 1px solid var(--rule);
+  border-radius: 18px;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 13px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); }
+.field input {
+  font: inherit;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  padding: 12px 14px;
+  border: 1.5px solid var(--rule);
+  border-radius: 12px;
+  background: var(--sunken);
+  color: var(--ink);
+  min-height: 48px;
+}
+.field input:focus-visible { outline: 3px solid var(--biscuit); outline-offset: 1px; }
+
+.choice-row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.side-choice {
+  flex: 1 1 130px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px;
+  border: 1.5px solid var(--rule);
+  border-radius: 16px;
+  background: var(--surface);
+  cursor: pointer;
+  font-weight: 800;
+}
+.side-choice:hover { border-color: var(--biscuit); }
+.side-choice svg { width: 52px; height: 52px; }
+.side-choice--w { color: var(--piece-w); --piece-ink: var(--piece-w-ink); --piece-stroke: var(--piece-w-ink); }
+.side-choice--b { color: var(--piece-b); --piece-ink: var(--piece-b-ink); --piece-stroke: #4A3629; }
+.side-choice span { color: var(--ink); }
+
+.note { margin: 0; font-size: 14px; color: var(--ink-soft); }
+.note--warn { color: var(--warn); font-weight: 700; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Calm, when asked for
+   ───────────────────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Treat Mode
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* A piece you may point at while choosing what to shield. */
+.sq--pickable {
+  box-shadow: inset 0 0 0 3px var(--biscuit);
+  cursor: pointer;
+}
+
+/* The move Sniff is pointing at. */
+.sq--hinted::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--good);
+  opacity: .34;
+  pointer-events: none;
+  animation: hint-in var(--fade) var(--ease);
+}
+
+/* A shielded piece: a soft ring, so it reads at a glance without hiding the art. */
+.sq--shielded {
+  box-shadow: inset 0 0 0 4px color-mix(in srgb, var(--good) 75%, transparent);
+}
+
+/* An author rule beats the browser's own [hidden] rule, so hiding this panel
+   has to be spelled out or `hidden = true` does nothing. */
+.treats[hidden] { display: none; }
+
+.treats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.treats-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.treats-title {
+  font-family: "Fraunces", Georgia, serif;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.treats-note { margin: 0; font-size: 12.5px; color: var(--ink-soft); }
+
+.treats-row { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.treat-btn {
+  flex: 1 1 auto;
+  min-width: 82px;
+  min-height: 40px;
+  padding: 7px 12px;
+  border: 1.5px solid var(--rule);
+  border-radius: 12px;
+  background: var(--sunken);
+  font-size: 13.5px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: border-color 140ms var(--ease);
+}
+.treat-btn:hover:not(:disabled) { border-color: var(--biscuit); }
+.treat-btn:disabled { opacity: .4; cursor: not-allowed; }
+.treat-btn[aria-pressed="true"] { border-color: var(--biscuit); background: var(--biscuit); color: #FFF8F2; }
+
+/* The switch on the home screen and the room screen. */
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1.5px solid var(--rule);
+  border-radius: 16px;
+  background: var(--surface);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+.switch:hover { border-color: var(--biscuit); }
+.switch[aria-pressed="true"] { border-color: var(--biscuit); }
+
+.switch-track {
+  flex: none;
+  width: 46px; height: 26px;
+  border-radius: 999px;
+  background: var(--rule);
+  position: relative;
+  transition: background 160ms var(--ease);
+}
+.switch[aria-pressed="true"] .switch-track { background: var(--biscuit); }
+
+.switch-track::after {
+  content: "";
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--surface);
+  transition: transform 160ms var(--ease);
+}
+.switch[aria-pressed="true"] .switch-track::after { transform: translateX(20px); }
+
+.switch-text strong { display: block; font-size: 15px; font-weight: 800; }
+.switch-text span { font-size: 13px; color: var(--ink-soft); }

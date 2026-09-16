@@ -1,0 +1,44 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+
+  "name": "pawsitions",
+  "main": "src/worker.js",
+
+  // Today's date. This pins the exact Workers runtime behaviour, so that a
+  // future runtime change cannot silently alter how this game behaves.
+  "compatibility_date": "2026-09-15",
+
+  // Logs and metrics in the Cloudflare dashboard.
+  "observability": {
+    "enabled": true
+  },
+
+  "assets": {
+    // Everything the browser downloads. Cloudflare serves these files directly
+    // without running any code, which is both faster and cheaper.
+    "directory": "./public",
+    "binding": "ASSETS",
+
+    // Any URL we have no file for is answered with index.html, and the
+    // JavaScript works out what to show. That is what lets a link like
+    // /room/BISCUIT work without a file of that name existing.
+    "not_found_handling": "single-page-application",
+
+    // The one exception: live game traffic must reach our code rather than
+    // looking for a file.
+    "run_worker_first": ["/ws/*"]
+  },
+
+  "durable_objects": {
+    "bindings": [
+      // One Room object per room code, reached with env.ROOM.getByName(code).
+      { "name": "ROOM", "class_name": "Room" }
+    ]
+  },
+
+  "migrations": [
+    // new_sqlite_classes, not new_classes: this gives each Room a real SQLite
+    // database rather than the older key-value store.
+    { "tag": "v1", "new_sqlite_classes": ["Room"] }
+  ]
+}
