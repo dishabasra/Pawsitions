@@ -9,79 +9,112 @@
  * Tokens are from ProductSpec.md §3.1.
  */
 
+/*
+ * Pawsitions — the whole visual system.
+ *
+ * Every colour in the game is declared once, at the top, as a named token. No
+ * other rule in this file, and no line of JavaScript, may use a raw hex value.
+ * That is what makes the theme a decision rather than a habit: changing the
+ * board's green means editing one line, not hunting through a stylesheet.
+ */
+
 :root {
-  /* The board. These two never change with the OS theme — a chess board that
-     changes colour underneath you is disorienting. */
-  --sq-light: #F3EADF;
-  --sq-dark: #9FB89A;
+  /* The board. Warmer and a little fresher than a flat sage — enough green to
+     read as a board, enough cream to stay soft under the artwork. */
+  --sq-light: #F7EBD9;
+  --sq-dark: #9DC6A4;
 
   /* Pieces. White and Black share one drawing; only these differ. */
-  --piece-w: #FFFBF4;
-  --piece-w-ink: #6B5142;
-  --piece-b: #6B5142;
-  --piece-b-ink: #F3EADF;
+  --piece-w: #FFFAF2;
+  --piece-w-ink: #6B4A32;
+  --piece-b: #7A5232;
+  --piece-b-ink: #FBF1E4;
 
-  /* The accent: Biscuit's collar, move dots, primary buttons. */
-  --biscuit: #E28A5F;
-  --biscuit-deep: #C96E43;
+  /* The accent: buttons, move dots, collars, treats. */
+  --biscuit: #F0955C;
+  --biscuit-deep: #D5763D;
 
-  /* The page around the board. These do follow the OS theme. */
-  --paper: #FAF5EE;
-  --surface: #FFFFFF;
-  --sunken: #F2EADF;
-  --ink: #3B2E27;
-  --ink-soft: #7A6A5F;
-  --rule: #E6DBCB;
+  /* A second accent, used sparingly — blossom, hearts, paw pads. */
+  --blossom: #F4A0A6;
+
+  /* The meadow the dogs live on. */
+  --grass: #A9D3A8;
+  --grass-deep: #7FB587;
+  --grass-blade: #6FA877;
+  --bloom: #FFF3F4;
+  --bloom-heart: #FFD98E;
+  --sky: #DFF1EA;
+
+  /* The page. */
+  --paper: #FFF6E9;
+  --paper-2: #FDE9DA;
+  --surface: #FFFDF9;
+  --sunken: #FBEEDD;
+  --ink: #4A3527;
+  --ink-soft: #8A7360;
+  --rule: #EDD9C2;
 
   /* Meaning, not decoration. Kept separate from the accent. */
-  --good: #5E8C63;
-  --warn: #C8654A;
+  --good: #5E9C68;
+  --warn: #D06A4C;
 
-  /* The dog's outline. Transparent by default; only the cream dog needs one,
-     because he sits on a cream card. */
-  --dog-stroke: transparent;
-
-  --shadow: rgba(59, 46, 39, .10);
-  --shadow-deep: rgba(59, 46, 39, .20);
+  --shadow: rgba(92, 62, 40, .10);
+  --shadow-deep: rgba(92, 62, 40, .20);
 
   /* Motion. Every duration in the game refers to one of these. */
   --slide: 180ms;
   --fade: 90ms;
   --ease: cubic-bezier(.22, .61, .36, 1);
+  --bounce: cubic-bezier(.34, 1.56, .64, 1);
+
+  /* How much room the meadow takes along the bottom. */
+  --meadow-h: 196px;
 
   color-scheme: light dark;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --paper: #1C1815;
-    --surface: #262019;
-    --sunken: #2F2820;
-    --ink: #F4EDE3;
-    --ink-soft: #B3A392;
-    --rule: #3D342A;
-    --biscuit: #EC9A72;
-    --biscuit-deep: #D9805A;
-    --good: #82B387;
-    --warn: #E08165;
-    --shadow: rgba(0, 0, 0, .40);
-    --shadow-deep: rgba(0, 0, 0, .55);
+    --paper: #241C17;
+    --paper-2: #1C1511;
+    --surface: #2E241D;
+    --sunken: #382C23;
+    --ink: #F7EDE0;
+    --ink-soft: #BCA795;
+    --rule: #47372C;
+    --biscuit: #F5A874;
+    --biscuit-deep: #E08B53;
+    --good: #85BC8E;
+    --warn: #E68765;
+    --grass: #4E7A57;
+    --grass-deep: #3C6144;
+    --grass-blade: #6A9A72;
+    --sky: #223029;
+    --bloom: #F3E4E4;
+    --shadow: rgba(0, 0, 0, .42);
+    --shadow-deep: rgba(0, 0, 0, .58);
   }
 }
 
 :root[data-theme="dark"] {
-  --paper: #1C1815;
-  --surface: #262019;
-  --sunken: #2F2820;
-  --ink: #F4EDE3;
-  --ink-soft: #B3A392;
-  --rule: #3D342A;
-  --biscuit: #EC9A72;
-  --biscuit-deep: #D9805A;
-  --good: #82B387;
-  --warn: #E08165;
-  --shadow: rgba(0, 0, 0, .40);
-  --shadow-deep: rgba(0, 0, 0, .55);
+  --paper: #241C17;
+  --paper-2: #1C1511;
+  --surface: #2E241D;
+  --sunken: #382C23;
+  --ink: #F7EDE0;
+  --ink-soft: #BCA795;
+  --rule: #47372C;
+  --biscuit: #F5A874;
+  --biscuit-deep: #E08B53;
+  --good: #85BC8E;
+  --warn: #E68765;
+  --grass: #4E7A57;
+  --grass-deep: #3C6144;
+  --grass-blade: #6A9A72;
+  --sky: #223029;
+  --bloom: #F3E4E4;
+  --shadow: rgba(0, 0, 0, .42);
+  --shadow-deep: rgba(0, 0, 0, .58);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -94,7 +127,13 @@ html, body { height: 100%; }
 
 body {
   margin: 0;
-  background: var(--paper);
+  /* A soft warm wash rather than a flat fill, so the board has something to sit
+     on. Fixed, so it does not slide about as the page scrolls. */
+  background:
+    radial-gradient(1100px 520px at 18% -8%, color-mix(in srgb, var(--blossom) 24%, transparent), transparent 62%),
+    radial-gradient(900px 480px at 88% 4%, color-mix(in srgb, var(--grass) 26%, transparent), transparent 60%),
+    linear-gradient(176deg, var(--paper) 0%, var(--paper-2) 100%);
+  background-attachment: fixed;
   color: var(--ink);
   font-family: "Nunito", ui-rounded, "Segoe UI", system-ui, -apple-system, sans-serif;
   font-size: 16px;
@@ -106,7 +145,7 @@ body {
 .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
 
 h1, h2, h3 {
-  font-family: "Fraunces", Georgia, "Times New Roman", serif;
+  font-family: "Fredoka", "Nunito", ui-rounded, system-ui, sans-serif;
   margin: 0;
   text-wrap: balance;
   letter-spacing: -.01em;
@@ -137,6 +176,8 @@ button { font: inherit; color: inherit; }
   min-height: 100%;
   display: flex;
   flex-direction: column;
+  position: relative;
+  z-index: 2;
 }
 
 .topbar {
@@ -148,7 +189,11 @@ button { font: inherit; color: inherit; }
   padding: 14px 20px;
   padding-top: calc(14px + env(safe-area-inset-top, 0px));
   border-bottom: 1px solid var(--rule);
-  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  backdrop-filter: blur(10px);
+  position: sticky;
+  top: 0;
+  z-index: 20;
 }
 
 .brand {
@@ -160,14 +205,15 @@ button { font: inherit; color: inherit; }
 }
 
 .brand-mark {
-  width: 34px; height: 34px;
-  color: var(--piece-b);
-  --dog-ink: var(--piece-b-ink);
+  width: 32px; height: 32px;
   flex: none;
+  border-radius: 10px;
+  background: var(--sq-dark);
+  box-shadow: inset 0 0 0 3px var(--sq-light), 0 2px 0 var(--rule);
 }
 
 .brand-name {
-  font-family: "Fraunces", Georgia, serif;
+  font-family: "Fredoka", "Nunito", ui-rounded, sans-serif;
   font-weight: 900;
   font-size: 22px;
   letter-spacing: -.015em;
@@ -181,8 +227,8 @@ button { font: inherit; color: inherit; }
   max-width: 1040px;
   margin: 0 auto;
   padding-inline: 20px;
-  padding-block: 28px 40px;
-  padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
+  padding-block: 28px 24px;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -249,9 +295,14 @@ button { font: inherit; color: inherit; }
 }
 
 .home-dog {
-  width: 120px; height: 120px;
-  color: var(--piece-b);
-  --dog-ink: var(--piece-b-ink);
+  width: 168px;
+  filter: drop-shadow(0 8px 10px rgba(92, 62, 40, .18));
+}
+.home-dog .dg { width: 100%; height: auto; display: block; overflow: visible; }
+.home-dog { animation: idle-bob 3.4s var(--ease) infinite; }
+@keyframes idle-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-7px); }
 }
 
 .home h1 { font-weight: 900; font-size: clamp(32px, 7vw, 46px); line-height: 1.05; }
@@ -314,7 +365,7 @@ button { font: inherit; color: inherit; }
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   width: 100%;
 }
 
@@ -323,7 +374,10 @@ button { font: inherit; color: inherit; }
    ───────────────────────────────────────────────────────────────────────── */
 
 .board {
-  --board-size: min(100%, 560px);
+  /* The board fills the space between the top bar and the meadow, so the whole
+     game sits on one screen with nothing scrolled off and nothing overlapping.
+     124px is the top bar (74) plus the page's top padding (28) plus a gap. */
+  --board-size: max(272px, min(100%, 620px, calc(100dvh - var(--meadow-h) - 124px)));
   position: relative;
   width: var(--board-size);
   min-width: 280px;
@@ -331,10 +385,13 @@ button { font: inherit; color: inherit; }
   display: grid;
   grid-template-columns: repeat(8, 1fr);
   grid-template-rows: repeat(8, 1fr);
-  border-radius: 14px;
+  border-radius: 20px;
   overflow: hidden;
   background: var(--sq-light);
-  box-shadow: 0 8px 24px var(--shadow), inset 0 0 0 1px rgba(0, 0, 0, .06);
+  box-shadow:
+    0 18px 38px -18px var(--shadow-deep),
+    0 2px 0 0 color-mix(in srgb, var(--rule) 70%, transparent),
+    inset 0 0 0 1px rgba(0, 0, 0, .05);
   touch-action: manipulation;
 }
 
@@ -493,81 +550,243 @@ button { font: inherit; color: inherit; }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Biscuit and the captured tray
+   The scoreboard rows — who has taken what
    ───────────────────────────────────────────────────────────────────────── */
 
-.dog-card {
+.player {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
   align-items: center;
-  padding: 12px 14px;
-  border: 1px solid var(--rule);
-  border-radius: 14px;
+  padding: 11px 14px;
+  border: 1.5px solid var(--rule);
+  border-radius: 16px;
   background: var(--surface);
+  transition: border-color 160ms var(--ease);
 }
+.player--active { border-color: var(--biscuit); }
 
-.dog-card--active { border-color: var(--biscuit); }
-
-.dog-figure {
-  width: 62px; height: 62px;
-  flex: none;
-  transform-origin: 50% 85%;
+.player-chip {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--piece-w-ink);
 }
-.dog-card--w .dog-figure { color: var(--piece-w); --dog-ink: var(--piece-w-ink); --dog-stroke: var(--piece-w-ink); }
-.dog-card--b .dog-figure { color: var(--piece-b); --dog-ink: var(--piece-b-ink); }
+.player--w .player-chip { background: var(--piece-w); }
+.player--b .player-chip { background: var(--piece-b); }
 
-.dog-name { font-weight: 800; font-size: 15px; }
-.dog-stage { font-size: 13px; color: var(--ink-soft); }
+.player-name { font-weight: 800; font-size: 14.5px; }
+.player-sub { font-size: 12px; color: var(--ink-soft); }
 
-.dog-bowl {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 4px;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--biscuit);
+.player-score {
+  font-size: 14px; font-weight: 800; color: var(--biscuit);
   font-variant-numeric: tabular-nums;
-}
-.dog-bowl svg { width: 22px; height: 11px; color: var(--biscuit); --dog-ink: var(--sunken); }
-
-/* The tail wags, gently and forever. */
-.dog-tail { transform-origin: 75% 80%; }
-.dog-card--active .dog-tail { animation: wag 1.6s var(--ease) infinite; }
-@keyframes wag { 0%, 100% { transform: rotate(-9deg); } 50% { transform: rotate(9deg); } }
-
-/* Reactions. */
-.dog-figure--think { animation: tilt 2s var(--ease) infinite; }
-@keyframes tilt { 0%, 100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
-.dog-figure--happy { animation: spin 900ms var(--ease) 1; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.dog-figure--sad { transform: rotate(90deg) translateY(10%); opacity: .7; }
-
-/* A treat arcing from the captured square into the bowl. */
-.treat-fly {
-  position: fixed;
-  z-index: 40;
-  width: 24px; height: 24px;
-  color: var(--biscuit);
-  pointer-events: none;
 }
 
 .tray {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 3px;
-  min-height: 26px;
-  margin-top: 6px;
+  gap: 2px;
+  margin-top: 3px;
+  min-height: 20px;
 }
-.tray svg { width: 22px; height: 22px; }
-.tray-score {
-  margin-left: 6px;
-  font-size: 13px;
-  font-weight: 800;
-  color: var(--biscuit);
+.tray svg { width: 23px; height: 23px; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   The meadow — where the dogs actually live
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Only the screens that actually put dogs on the grass reserve room for it —
+   otherwise the home screen leaves a strip of nothing at the bottom. */
+body.has-meadow .screen {
+  padding-bottom: calc(var(--meadow-h) + 24px + env(safe-area-inset-bottom, 0px));
+}
+
+.meadow {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  height: var(--meadow-h);
+  pointer-events: none;
+  z-index: 1;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.meadow-ground {
+  position: absolute;
+  clip-path: inset(0 0 0 0);
+  left: 0; right: 0; bottom: 0;
+  width: 100%;
+  height: 112px;
+  display: block;
+}
+
+.meadow-flora { position: absolute; inset: 0; }
+
+.tuft, .flower {
+  position: absolute;
+  bottom: 38px;
+  transform: translateX(-50%);
+  transform-origin: 50% 100%;
+  animation: sway var(--sway, 4s) ease-in-out infinite alternate;
+}
+.tuft { width: 26px; }
+.tuft svg { width: 100%; display: block; }
+.flower { width: 24px; bottom: 60px; }
+.flower svg { width: 100%; display: block; }
+
+@keyframes sway {
+  from { transform: translateX(-50%) rotate(-5deg); }
+  to   { transform: translateX(-50%) rotate(5deg); }
+}
+
+/* A dog. Positioned along the strip by `left`, animated by classes. */
+.pup {
+  position: absolute;
+  bottom: 58px;
+  width: 134px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  will-change: left;
+}
+
+.pup-figure {
+  width: 100%;
+  transform-origin: 50% 92%;
+  transform: rotate(var(--lean, 0deg));
+  transition: transform 260ms var(--ease);
+  filter: drop-shadow(0 6px 8px rgba(92, 62, 40, .20));
+}
+.pup-figure .dg { width: 100%; height: auto; display: block; overflow: visible; }
+
+.pup-label {
+  font-family: "Fredoka", "Nunito", sans-serif;
+  font-weight: 600;
+  font-size: 12.5px;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  border: 1.5px solid var(--rule);
+  border-radius: 999px;
+  padding: 1px 10px;
+  margin-bottom: -4px;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 200ms var(--ease), transform 200ms var(--ease);
+}
+.pup--active .pup-label { opacity: 1; transform: translateY(0); }
+
+/* Hopping along. A front-facing dog cannot be mirrored to turn round, so he
+   bounces and leans instead — which is cuter anyway. */
+.pup--hopping .pup-figure { animation: hop var(--hop, .5s) var(--bounce) infinite; }
+@keyframes hop {
+  0%, 100% { transform: rotate(var(--lean, 0deg)) translateY(0) scaleY(1); }
+  30%      { transform: rotate(var(--lean, 0deg)) translateY(-14px) scaleY(1.05); }
+  60%      { transform: rotate(var(--lean, 0deg)) translateY(0) scaleY(.94); }
+}
+
+/* The ears swing a beat behind the hop, which is what sells it. */
+.pup--hopping .dg-ear { animation: ear-flap var(--hop, .5s) var(--ease) infinite; }
+.dg-ear { transform-box: fill-box; }
+@keyframes ear-flap {
+  0%, 100% { transform: rotate(0deg); }
+  35%      { transform: rotate(-9deg); }
+  70%      { transform: rotate(5deg); }
+}
+
+/* Only the dog whose turn it is wags. */
+.dg-tail { transform-box: fill-box; transform-origin: 8% 80%; }
+.pup--active .dg-tail { animation: wag 620ms var(--ease) infinite; }
+@keyframes wag {
+  0%, 100% { transform: rotate(-13deg); }
+  50%      { transform: rotate(13deg); }
+}
+
+/* A blink, every so often. */
+.dg-eye { transform-box: fill-box; transform-origin: 50% 50%; }
+.pup .dg-eye { animation: blink 6.5s infinite; }
+.pup--b .dg-eye { animation-delay: 2.4s; }
+@keyframes blink {
+  0%, 94%, 100% { transform: scaleY(1); }
+  96%           { transform: scaleY(.12); }
+  98%           { transform: scaleY(1); }
+}
+
+.pup--sitting .pup-figure { transform: rotate(var(--lean, 0deg)) scaleY(.97) translateY(2px); }
+
+/* Head down in the bowl. */
+.pup--eating .dg-head { animation: nibble .34s var(--ease) infinite; }
+.dg-head { transform-box: fill-box; }
+@keyframes nibble {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(9px) rotate(-3deg); }
+}
+
+/* Growing up. */
+.pup--growing .pup-figure { animation: grow-pop .9s var(--bounce); }
+@keyframes grow-pop {
+  0%   { transform: scale(.82); }
+  55%  { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+.pup--thinking .dg-head { animation: tilt 2s var(--ease) infinite; }
+@keyframes tilt {
+  0%, 100% { transform: rotate(-8deg); }
+  50%      { transform: rotate(8deg); }
+}
+
+.pup--happy .pup-figure { animation: cheer .6s var(--bounce) 3; }
+@keyframes cheer {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-22px) rotate(6deg); }
+}
+
+.pup--sad .pup-figure { filter: saturate(.6) drop-shadow(0 4px 6px rgba(92,62,40,.18)); opacity: .82; }
+
+/* The bowl each dog's treats land in. */
+.bowl {
+  position: absolute;
+  bottom: 46px;
+  width: 60px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+.bowl svg { width: 100%; display: block; filter: drop-shadow(0 3px 4px rgba(92,62,40,.22)); }
+.bowl-count {
+  font-family: "Fredoka", "Nunito", sans-serif;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  border: 1.5px solid var(--rule);
+  border-radius: 999px;
+  padding: 0 8px;
   font-variant-numeric: tabular-nums;
+}
+
+/* A treat arcing from the board into a bowl. */
+.treat-fly {
+  position: fixed;
+  top: 0; left: 0;
+  z-index: 40;
+  width: 26px; height: 26px;
+  pointer-events: none;
+}
+.treat-fly svg { width: 100%; height: 100%; display: block; }
+
+@media (max-width: 720px) {
+  :root { --meadow-h: 160px; }
+  .pup { width: 94px; bottom: 40px; }
+  .bowl { width: 46px; bottom: 32px; }
+  .meadow-ground { height: 78px; }
+  .tuft { width: 20px; bottom: 26px; }
+  .flower { width: 18px; bottom: 42px; }
+  .pup-label { font-size: 11px; }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -740,7 +959,7 @@ button { font: inherit; color: inherit; }
 }
 
 .treats-title {
-  font-family: "Fraunces", Georgia, serif;
+  font-family: "Fredoka", "Nunito", sans-serif;
   font-weight: 600;
   font-size: 16px;
 }

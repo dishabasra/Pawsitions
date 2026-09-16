@@ -13,7 +13,7 @@
  */
 
 import { Board } from './board.js';
-import { Dog } from './dog.js';
+import { Meadow, buildDog, stageFor, treatsToNextStage } from './dog.js';
 import { Game } from './game.js';
 import { chooseMove } from './engine.js';
 import { RoomConnection, suggestRoomCode, normaliseRoomCode } from './online.js';
@@ -118,13 +118,8 @@ function renderHome() {
   setTopbar();
   const view = el('div', 'home');
 
-  const dog = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  dog.setAttribute('class', 'home-dog');
-  dog.setAttribute('viewBox', '0 0 64 64');
-  dog.setAttribute('aria-hidden', 'true');
-  const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-  use.setAttribute('href', '#dog-2');
-  dog.appendChild(use);
+  const dog = el('div', 'home-dog');
+  dog.appendChild(buildDog(stageFor(6), 'w'));
 
   const heading = el('h1', null, 'Chess, with a puppy');
   const blurb = el(
@@ -211,10 +206,32 @@ class GameView {
     this.statusEl.append(this.statusDot, this.statusText);
     this.subtitleEl = el('p', 'status-sub');
 
+    // The dogs do not live in the panel any more — they live on the grass at
+    // the bottom of the screen. What stays here is the bookkeeping: who has
+    // taken what, and who is ahead.
+    this.meadow = new Meadow();
     this.dogs = {
-      w: new Dog({ color: 'w', name: names.w }),
-      b: new Dog({ color: 'b', name: names.b }),
+      // Both dogs stay in the open ground under the board rather than under the
+      // side panel, where they would spend most of their time hidden behind the
+      // buttons — and clear of the edges, so a name pill or a bowl never runs
+      // off screen on a narrow phone.
+      w: this.meadow.addDog({ color: 'w', name: names.w, range: [13, 30], bowlAt: 6 }),
+      b: this.meadow.addDog({ color: 'b', name: names.b, range: [40, 57], bowlAt: 64 }),
     };
+
+    this.rows = {};
+    for (const color of ['w', 'b']) {
+      const row = el('section', `player player--${color}`);
+      const chip = el('span', 'player-chip');
+      const middle = el('div');
+      const name = el('div', 'player-name', names[color]);
+      const sub = el('div', 'player-sub');
+      const tray = el('div', 'tray');
+      middle.append(name, sub, tray);
+      const score = el('span', 'player-score');
+      row.append(chip, middle, score);
+      this.rows[color] = { row, sub, tray, score };
+    }
 
     this.controlsEl = el('div', 'controls');
 
@@ -223,7 +240,7 @@ class GameView {
 
     this.panel.append(
       this.statusEl, this.subtitleEl,
-      this.dogs.w.root, this.dogs.b.root,
+      this.rows.w.row, this.rows.b.row,
       this.treatsEl,
       this.controlsEl,
     );
@@ -247,6 +264,7 @@ class GameView {
 
   mount() {
     screen.replaceChildren(this.root);
+    this.meadow.mount(document.body);
     this.refresh({ animate: false });
   }
 
@@ -300,16 +318,41 @@ class GameView {
 
     const captures = game.captures();
     for (const color of ['w', 'b']) {
+      const taken = captures[color];
       const dog = this.dogs[color];
-      dog.setTreats(captures[color].pieces.length);
-      dog.setTray(captures[color].pieces, captures[color].lead);
+      const row = this.rows[color];
+
+      dog.setTreats(taken.pieces.length);
       dog.setActive(!status.over && game.turn === color);
       if (status.over) {
-        if (status.winner === null) dog.setMood('drew');
-        else dog.setMood(status.winner === color ? 'won' : 'lost');
-      } else if (dog.mood !== 'think') {
+        dog.setMood(status.winner === null ? 'drew' : (status.winner === color ? 'won' : 'lost'));
+      } else if (dog.mood !== 'think' && dog.mood !== 'eating') {
         dog.setMood('calm');
       }
+
+      const stage = stageFor(taken.pieces.length);
+      const left = treatsToNextStage(taken.pieces.length);
+      row.row.classList.toggle('player--active', !status.over && game.turn === color);
+      row.sub.textContent = left === null
+        ? `${stage.name} · fully grown`
+        : `${stage.name} · ${left} more ${left === 1 ? 'treat' : 'treats'} to grow`;
+      row.score.textContent = taken.lead > 0 ? `+${taken.lead}` : '';
+
+      row.tray.replaceChildren();
+      for (const piece of taken.pieces) {
+        const holder = el('span', `sq--${piece.color}`);
+        holder.style.display = 'contents';
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('viewBox', '0 0 48 48');
+        svg.setAttribute('aria-hidden', 'true');
+        const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+        use.setAttribute('href', `#piece-${piece.type}`);
+        svg.appendChild(use);
+        holder.appendChild(svg);
+        row.tray.appendChild(holder);
+      }
+      row.tray.setAttribute('aria-label',
+        taken.pieces.length === 0 ? 'nothing captured yet' : `${taken.pieces.length} captured`);
     }
 
     for (const { spec, node } of this.controlButtons) {
@@ -331,6 +374,7 @@ class GameView {
   /** Let go of everything that outlives the screen. */
   destroy() {
     this.board.destroy();
+    this.meadow.destroy();
   }
 
   /**
@@ -392,7 +436,7 @@ class GameView {
       const rank = (7 - (move.to >> 3)) - forward;
       square = (7 - rank) * 8 + file;
     }
-    this.dogs[move.piece.color].throwTreat(this.board.squares[square]);
+    this.meadow.throwTreat(this.board.squares[square], this.dogs[move.piece.color]);
   }
 }
 
