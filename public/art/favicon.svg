@@ -1,14 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#9FB89A"/>
-  <g fill="#F3EADF">
-    <ellipse cx="17" cy="30" rx="5" ry="9"/>
-    <ellipse cx="47" cy="30" rx="5" ry="9"/>
-    <circle cx="32" cy="31" r="15"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- Same mark as the top bar: a paw print on a board square. -->
+  <rect x="2" y="2" width="44" height="44" rx="13" fill="#D6A87B" stroke="#6B4A32" stroke-width="3"/>
+  <path d="M2 15 v-2 a11 11 0 0 1 11 -11 h2 v13 z" fill="#FFF7E9" opacity=".55"/>
+  <path d="M46 33 v2 a11 11 0 0 1 -11 11 h-2 v-13 z" fill="#FFF7E9" opacity=".55"/>
+  <g fill="#FFF7E9" stroke="#6B4A32" stroke-width="2.6" stroke-linejoin="round">
+    <path d="M24 39.5 C18.4 39.5 15 36.4 15 32.6 C15 28.9 18.8 26.6 24 26.6 C29.2 26.6 33 28.9 33 32.6 C33 36.4 29.6 39.5 24 39.5 Z"/>
+    <ellipse cx="12.6" cy="23.4" rx="3.7" ry="4.6" transform="rotate(-20 12.6 23.4)"/>
+    <ellipse cx="19.4" cy="18.2" rx="3.9" ry="5" transform="rotate(-8 19.4 18.2)"/>
+    <ellipse cx="28.6" cy="18.2" rx="3.9" ry="5" transform="rotate(8 28.6 18.2)"/>
+    <ellipse cx="35.4" cy="23.4" rx="3.7" ry="4.6" transform="rotate(20 35.4 23.4)"/>
   </g>
-  <g fill="#6B5142">
-    <ellipse cx="32" cy="38" rx="8" ry="6"/>
-    <circle cx="26" cy="28" r="2.2"/>
-    <circle cx="38" cy="28" r="2.2"/>
-  </g>
-  <ellipse cx="32" cy="35" rx="2.6" ry="2" fill="#F3EADF"/>
 </svg>

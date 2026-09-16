@@ -100,8 +100,28 @@
 <div class="shell">
   <header class="topbar">
     <a class="brand" href="#/" aria-label="Pawsitions — home">
-      <span class="brand-mark" aria-hidden="true"></span>
-      <span class="brand-name">Pawsitions</span>
+      <svg class="brand-mark" viewBox="0 0 48 48" aria-hidden="true">
+        <!--
+          The logo: a paw print on a board square. The square is the honey of the
+          dark squares, the paw is the cream of the light ones, and the outline is
+          the same cocoa the pieces are drawn with — so the mark is made of the
+          game rather than placed beside it.
+        -->
+        <rect x="2" y="2" width="44" height="44" rx="13"
+              fill="var(--sq-dark)" stroke="var(--piece-w-ink)" stroke-width="3"/>
+        <!-- A hint of the checker, so it reads as a board square and not a tile. -->
+        <path d="M2 15 v-2 a11 11 0 0 1 11 -11 h2 v13 z" fill="var(--sq-light)" opacity=".55"/>
+        <path d="M46 33 v2 a11 11 0 0 1 -11 11 h-2 v-13 z" fill="var(--sq-light)" opacity=".55"/>
+        <g fill="var(--sq-light)" stroke="var(--piece-w-ink)" stroke-width="2.6" stroke-linejoin="round">
+          <path d="M24 39.5 C18.4 39.5 15 36.4 15 32.6 C15 28.9 18.8 26.6 24 26.6
+                   C29.2 26.6 33 28.9 33 32.6 C33 36.4 29.6 39.5 24 39.5 Z"/>
+          <ellipse cx="12.6" cy="23.4" rx="3.7" ry="4.6" transform="rotate(-20 12.6 23.4)"/>
+          <ellipse cx="19.4" cy="18.2" rx="3.9" ry="5" transform="rotate(-8 19.4 18.2)"/>
+          <ellipse cx="28.6" cy="18.2" rx="3.9" ry="5" transform="rotate(8 28.6 18.2)"/>
+          <ellipse cx="35.4" cy="23.4" rx="3.7" ry="4.6" transform="rotate(20 35.4 23.4)"/>
+        </g>
+      </svg>
+      <span class="brand-name"><b>Paw</b>sitions</span>
     </a>
     <div class="topbar-actions" id="topbar-actions"></div>
   </header>
