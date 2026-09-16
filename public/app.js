@@ -18,6 +18,7 @@ import { Game } from './game.js';
 import { chooseMove } from './engine.js';
 import { RoomConnection, suggestRoomCode, normaliseRoomCode } from './online.js';
 import { sound, playMoveSound } from './audio.js';
+import { startBackdrop } from './backdrop.js';
 import {
   emptyTreatState, applyShields, canUse, markUsed, raiseShield,
   lapseShield, followMove, TREAT_LABELS, TREAT_BLURBS,
@@ -93,6 +94,11 @@ function soundToggles() {
   const music = make('music', '♫ Music on', '♫ Music off', () => sound.musicOn, (v) => sound.setMusic(v));
   const sfx = make('sfx', '♪ Sounds on', '♪ Sounds off', () => sound.sfxOn, (v) => sound.setSfx(v));
 
+  // The same two settings can be changed from the home screen, so repaint these
+  // whenever they move rather than letting the two views disagree.
+  const stop = sound.onChange(() => { music.paint(); sfx.paint(); });
+  wrap.addEventListener('DOMNodeRemovedFromDocument', stop);
+
   wrap.append(music.node, sfx.node);
   return wrap;
 }
@@ -141,14 +147,30 @@ function renderHome() {
     modes.appendChild(choice);
   }
 
-  const treatSwitch = switchControl({
+  const settings = el('div', 'home-modes');
+
+  settings.appendChild(switchControl({
+    title: '♫  Calming music',
+    blurb: 'A slow four-chord piano loop while you play. Off unless you want it.',
+    isOn: () => sound.musicOn,
+    onChange: (on) => sound.setMusic(on),
+  }));
+
+  settings.appendChild(switchControl({
+    title: '♪  Move sounds',
+    blurb: 'A soft tap on a move, a thud on a capture, a chime on check.',
+    isOn: () => sound.sfxOn,
+    onChange: (on) => sound.setSfx(on),
+  }));
+
+  settings.appendChild(switchControl({
     title: 'Treat Mode',
     blurb: 'Three one-use power-ups: Shield, Fetch and Sniff. Off means plain, legal chess.',
     isOn: treatModeWanted,
     onChange: setTreatModeWanted,
-  });
-  const treatWrap = el('div', 'home-modes');
-  treatWrap.appendChild(treatSwitch);
+  }));
+
+  const treatWrap = settings;
 
   view.append(dog, heading, blurb, modes, treatWrap);
   screen.replaceChildren(view);
@@ -1030,6 +1052,8 @@ function route() {
       window.location.hash = '#/';
   }
 }
+
+startBackdrop();
 
 window.addEventListener('hashchange', route);
 route();
