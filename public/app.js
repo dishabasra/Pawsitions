@@ -17,7 +17,7 @@ import { Meadow, buildDog, stageFor, treatsToNextStage } from './dog.js';
 import { Game } from './game.js';
 import { chooseMove } from './engine.js';
 import { RoomConnection, suggestRoomCode, normaliseRoomCode } from './online.js';
-import { sound, playMoveSound } from './audio.js';
+import { sound, playMoveSound, canIgnoreSilentSwitch, looksLikeApplePhone } from './audio.js';
 import { startBackdrop } from './backdrop.js';
 import {
   emptyTreatState, applyShields, canUse, markUsed, raiseShield,
@@ -54,18 +54,61 @@ function setTreatModeWanted(on) {
   try { localStorage.setItem(TREAT_KEY, on ? 'on' : 'off'); } catch { /* fine */ }
 }
 
-/** A labelled on/off switch. */
-function switchControl({ title, blurb, isOn, onChange }) {
+/**
+ * Things to unhook when the screen changes.
+ *
+ * Anything that listens to something outside its own element — the sound board,
+ * say — leaves a note here, and the router tidies up on the way out.
+ */
+const screenCleanups = [];
+
+function onLeavingScreen(fn) {
+  if (typeof fn === 'function') screenCleanups.push(fn);
+}
+
+/**
+ * A labelled on/off switch.
+ *
+ * `blurb` may be a function rather than a string, for switches whose wording
+ * depends on what actually happened — the music one has to be able to say "your
+ * phone is on silent" instead of pretending everything is fine.
+ */
+function switchControl({ title, blurb, isOn, onChange, subscribe }) {
   const node = el('button', 'switch');
   node.type = 'button';
   const track = el('span', 'switch-track');
   const text = el('span', 'switch-text');
-  text.append(el('strong', null, title), el('span', null, blurb));
+  const words = el('span');
+  text.append(el('strong', null, title), words);
   node.append(track, text);
-  const paint = () => node.setAttribute('aria-pressed', String(isOn()));
+  const paint = () => {
+    node.setAttribute('aria-pressed', String(isOn()));
+    words.textContent = typeof blurb === 'function' ? blurb() : blurb;
+  };
+  // The switch is flipped inside the click itself, with nothing awaited in
+  // front of it: a phone only lets a page start making noise while it is still
+  // handling the tap that asked for it.
   node.addEventListener('click', () => { onChange(!isOn()); paint(); });
+  if (subscribe) onLeavingScreen(subscribe(paint));
   paint();
   return node;
+}
+
+/**
+ * What to say under the music switch.
+ *
+ * Usually nothing interesting. But if the browser is refusing to play — most
+ * often an iPhone with the little side switch flicked to silent, on a version
+ * of iOS too old to be told otherwise — then saying so is the only thing that
+ * helps, because no amount of code on this side can turn that switch back.
+ */
+function musicBlurb() {
+  if (sound.musicOn && sound.blocked) {
+    return looksLikeApplePhone && !canIgnoreSilentSwitch
+      ? 'Nothing? Check the little switch on the side of your phone — if it is set to silent, iPhones mute web pages too.'
+      : 'Your browser is not letting this play. Tap the board once and try the switch again.';
+  }
+  return 'Four slow piano chords, round and round, for as long as you want them. Off until you say otherwise.';
 }
 
 /**
@@ -102,8 +145,7 @@ function soundToggles() {
 
   // The same two settings can be changed from the home screen, so repaint these
   // whenever they move rather than letting the two views disagree.
-  const stop = sound.onChange(() => { music.paint(); sfx.paint(); });
-  wrap.addEventListener('DOMNodeRemovedFromDocument', stop);
+  onLeavingScreen(sound.onChange(() => { music.paint(); sfx.paint(); }));
 
   wrap.append(music.node, sfx.node);
   return wrap;
@@ -133,17 +175,17 @@ function renderHome() {
   const dog = el('div', 'home-dog');
   dog.appendChild(buildDog(stageFor(6), 'w'));
 
-  const heading = el('h1', null, 'Chess, with a puppy');
+  const heading = el('h1', null, 'Chess, but there is a puppy');
   const blurb = el(
     'p', 'home-blurb',
-    'Real chess — every rule, nothing made easier. Every piece you capture is a treat for Biscuit, and enough treats and he grows up beside the board.',
+    'It is real chess in here. Nothing simplified, nothing skipped, and Biscuit will not let you play an illegal move even if you try. Every piece you take is a treat for him, and the more treats he gets the bigger he grows beside the board. That is the whole game.',
   );
 
   const modes = el('div', 'home-modes');
   const options = [
-    ['#/hotseat', 'Two players, one screen', 'Take turns on this device. The board turns to face whoever is up.'],
-    ['#/vs', 'Play the computer', 'Choose White or Black. It answers within two seconds.'],
-    ['#/online', 'Play a friend online', 'Share a room code and see each other’s moves as they happen.'],
+    ['#/hotseat', 'Two of you, one screen', 'Pass it back and forth. The board spins round each turn so it is always the right way up for whoever is playing.'],
+    ['#/vs', 'You against the computer', 'Pick your colour and it takes the other one. It thinks for a second or two, then plays.'],
+    ['#/online', 'A friend, somewhere else', 'Make up a code, send it over, and you are both looking at the same board.'],
   ];
   for (const [href, title, description] of options) {
     const choice = el('button', 'mode-btn');
@@ -156,22 +198,24 @@ function renderHome() {
   const settings = el('div', 'home-modes');
 
   settings.appendChild(switchControl({
-    title: '♫  Calming music',
-    blurb: 'A slow four-chord piano loop while you play. Off unless you want it.',
+    title: '♫  Something calm to play to',
+    blurb: musicBlurb,
     isOn: () => sound.musicOn,
     onChange: (on) => sound.setMusic(on),
+    subscribe: (paint) => sound.onChange(paint),
   }));
 
   settings.appendChild(switchControl({
-    title: '♪  Move sounds',
-    blurb: 'A soft tap on a move, a thud on a capture, a chime on check.',
+    title: '♪  Little noises',
+    blurb: 'A tap when a piece lands, a thud when one gets eaten, a chime when a king is in trouble.',
     isOn: () => sound.sfxOn,
     onChange: (on) => sound.setSfx(on),
+    subscribe: (paint) => sound.onChange(paint),
   }));
 
   settings.appendChild(switchControl({
     title: 'Treat Mode',
-    blurb: 'Three one-use power-ups: Shield, Fetch and Sniff. Off means plain, legal chess.',
+    blurb: 'Three tricks, one go at each: Shield, Fetch and Sniff. Leave it off for an ordinary, honest game.',
     isOn: treatModeWanted,
     onChange: setTreatModeWanted,
   }));
@@ -633,8 +677,8 @@ function renderSidePicker() {
 
   const card = el('div', 'card');
   card.append(
-    el('h2', null, 'Which side would you like?'),
-    el('p', 'note', 'White moves first. Choose Black and the computer opens.'),
+    el('h2', null, 'Which one do you want to be?'),
+    el('p', 'note', 'White always goes first. Take Black and the computer opens while you sit and watch.'),
   );
 
   const row = el('div', 'choice-row');
@@ -784,7 +828,7 @@ function renderRoomEntry() {
   const card = el('div', 'card');
   card.append(
     el('h2', null, 'Play a friend online'),
-    el('p', 'note', 'Both of you type the same code. The first one in plays White, the second plays Black, and anyone else can watch.'),
+    el('p', 'note', 'You both type the same code. Whoever gets there first is White, the next one is Black, and anybody else who wanders in can watch over your shoulder.'),
   );
 
   const field = el('div', 'field');
@@ -799,14 +843,14 @@ function renderRoomEntry() {
   input.maxLength = 12;
   input.value = suggestRoomCode();
   input.setAttribute('aria-describedby', 'room-code-help');
-  const help = el('p', 'note', 'Letters and numbers, at least three. We picked one for you — change it if you like.');
+  const help = el('p', 'note', 'Letters and numbers, three or more. Here is one we made up for you. Swap it for something better if you like.');
   help.id = 'room-code-help';
   field.append(label, input, help);
 
   const go = button('Open this room', 'btn--primary', () => {
     const code = normaliseRoomCode(input.value);
     if (code.length < 3) {
-      help.textContent = 'That code is too short — it needs at least three letters or numbers.';
+      help.textContent = 'A bit short, that one. Three letters or numbers at least.';
       help.classList.add('note--warn');
       input.focus();
       return;
@@ -820,7 +864,7 @@ function renderRoomEntry() {
 
   card.append(field, switchControl({
     title: 'Treat Mode',
-    blurb: 'Power-ups for both players. Only changeable before the first move.',
+    blurb: 'Tricks for both of you. Decide now — it cannot be changed once the first move is played.',
     isOn: treatModeWanted,
     onChange: setTreatModeWanted,
   }), go);
@@ -1033,6 +1077,7 @@ let current = null;
 function route() {
   if (current && typeof current.destroy === 'function') current.destroy();
   current = null;
+  while (screenCleanups.length) screenCleanups.pop()();
 
   const hash = window.location.hash.replace(/^#/, '') || '/';
   const parts = hash.split('/').filter(Boolean);
@@ -1091,18 +1136,30 @@ window.addEventListener('hashchange', () => requestAnimationFrame(measureChrome)
 
 /**
  * Browsers will not let a page make a sound until the person has interacted
- * with it. So rather than trying at load — which fails silently — the audio is
- * woken by the first click or key press, and only if a switch is already on
- * from a previous visit.
+ * with it, and a phone will not let it start a moment later either — the
+ * permission lasts exactly as long as the tap does.
+ *
+ * So the audio is woken by the very first touch anywhere on the page, whatever
+ * that touch was for, and whether or not any switch is on yet. Waking it costs
+ * nothing and makes no noise; what it buys is that when somebody does reach for
+ * the music switch, the sound is already awake and simply plays.
  */
 function wakeAudioOnFirstInteraction() {
-  const wake = async () => {
-    if (sound.sfxOn || sound.musicOn) {
-      await sound.unlock();
-      if (sound.musicOn) await sound.startMusic();
-    }
+  const wake = () => {
+    sound.wake();
+    if (sound.musicOn) sound.startMusic();
   };
-  document.addEventListener('pointerdown', wake, { once: true });
-  document.addEventListener('keydown', wake, { once: true });
+  // pointerdown covers mouse and touch; touchend is the belt-and-braces one for
+  // older iOS, where a tap that never became a pointer event still counts.
+  for (const event of ['pointerdown', 'touchend', 'keydown']) {
+    document.addEventListener(event, wake, { once: true, passive: true });
+  }
+
+  // Coming back from the background, or from a phone call, leaves iOS holding
+  // on to the speaker. Ask for it back each time the page is looked at again.
+  const revive = () => sound.revive();
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) revive(); });
+  window.addEventListener('pageshow', revive);
+  window.addEventListener('focus', revive);
 }
 wakeAudioOnFirstInteraction();

@@ -252,6 +252,33 @@ Online, the server checks power-ups exactly as it checks moves.
 
 ---
 
+## Sound and music
+
+Both switches are **off** until you turn them on, and both are remembered on that device.
+There are no audio files to download: the four-chord loop and every move sound are made
+from scratch in the browser with the Web Audio API.
+
+Phones have their own rules, and they are the reason `public/audio.js` is shaped the way
+it is:
+
+- **The audio has to start inside the tap.** A browser only lets a page begin making noise
+  while it is still handling the tap that asked for it, so the switch wakes the audio
+  first, synchronously, and renders the music afterwards. Anything waited on in between
+  loses the permission.
+- **iOS wants proof.** Resuming the audio is not enough; one silent sample is pushed
+  through so the phone counts it as really having played something.
+- **The ring/silent switch mutes web pages too.** On iOS 16.4 and later the page can say
+  "this is music, not a notification" with `navigator.audioSession`, which is exactly what
+  it does. On older versions nothing can override that little switch, so if the music is
+  on and still silent, the home screen says so instead of pretending.
+- **Only ever one audio context.** iOS allows a page a handful and then throws, which is a
+  silent and permanent failure. Pawsitions makes exactly one, for everything.
+
+If a call comes in, or you swap apps mid-game, iOS keeps the speaker. The music picks
+itself back up the next time you look at the page.
+
+---
+
 ## Not in scope
 
 Deliberately left out, to keep the game small and the rules provable:
