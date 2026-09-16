@@ -22,7 +22,8 @@ yarn-error.log*
 coverage/
 dist/
 
-# scratch screenshots from testing
-s-*.png
-shot-*.png
-final-*.png
+# Screenshots from the browser test scripts. These land wherever the script's
+# working directory happens to be, which has twice been the repo root, so the
+# rule covers PNGs generally and the few real assets are listed back in.
+*.png
+!public/art/**/*.png
